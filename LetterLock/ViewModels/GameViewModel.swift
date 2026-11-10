@@ -138,7 +138,7 @@ extension GameViewModel {
 
         viewModel.startRound()
         if let first = viewModel.categories.first {
-            viewModel.answers[first.id] = "\(viewModel.currentLetter)-animal"
+            viewModel.answers[first.id] = "\(viewModel.currentLetter)-name"
         }
         if state == .reveal {
             viewModel.stopTheBus()

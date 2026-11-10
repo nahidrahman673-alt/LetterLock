@@ -22,16 +22,16 @@ struct Category: Identifiable, Hashable {
     }
 
     static let defaults: [Category] = [
-        "Animal",
+        "Girl's Name",
+        "Boy's Name",
         "Country",
+        "Animal",
         "Food",
         "Movie/TV",
         "Brand",
-        "Name",
-        "Sport",
-        "Object",
-        "Occupation",
+        "Celebrity",
         "City",
+        "Book / Movie Character",
     ].map { Category(name: $0) }
 }
 
