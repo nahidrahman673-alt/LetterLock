@@ -53,6 +53,54 @@ struct OutlinedGameButtonStyle: ButtonStyle {
     }
 }
 
+struct HostBadge: View {
+    var body: some View {
+        Text("Host")
+            .font(.caption2.weight(.bold))
+            .foregroundStyle(Color.letterNavy)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 3)
+            .background(Color.letterYellow, in: .capsule)
+    }
+}
+
+/// A button only the host can press. Guests see a waiting message, plus a prototype-only
+/// shortcut that presses it on the host's behalf so the flow can be tested on one phone.
+struct HostActionButton: View {
+    let viewModel: GameViewModel
+    let title: String
+    let waitingText: String
+    var isEnabled = true
+    let action: (UUID) -> Void
+
+    var body: some View {
+        if viewModel.isLocalHost, let localPlayer = viewModel.localPlayer {
+            Button(title) {
+                action(localPlayer.id)
+            }
+            .buttonStyle(FilledGameButtonStyle())
+            .disabled(!isEnabled)
+            .opacity(isEnabled ? 1 : 0.4)
+        } else if let host = viewModel.hostPlayer {
+            VStack(spacing: 4) {
+                Text("\(waitingText)…")
+                    .font(.system(.headline, design: .rounded, weight: .bold))
+                    .foregroundStyle(Color.letterMuted)
+                    .frame(maxWidth: .infinity, minHeight: 58)
+                    .background(Color.letterSurface, in: .rect(cornerRadius: 16))
+
+                Button("Prototype: tap as \(host.name)") {
+                    action(host.id)
+                }
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.letterYellow)
+                .frame(minHeight: 44)
+                .disabled(!isEnabled)
+            }
+        }
+    }
+}
+
 /// A single letter tile, used for the logo, room code and round letter.
 struct LetterTile: View {
     let letter: String

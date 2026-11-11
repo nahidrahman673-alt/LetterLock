@@ -18,7 +18,7 @@ struct HomeView: View {
 
             LogoView()
 
-            Text("One letter. Every category.\nDon't think alike.")
+            Text("One letter. Ten categories.\nLock it in.")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.letterCream)
@@ -158,10 +158,11 @@ private struct HowToPlaySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let steps = [
-        "A random letter is chosen for the round.",
-        "Fill in every category with a word starting with that letter before the timer runs out.",
-        "Finished first? Hit STOP THE BUS! to freeze everyone's answers.",
-        "Answers are revealed and scored. The rarer yours is, the more it earns.",
+        "2 to 8 players, 3 or 5 rounds. The host starts each round.",
+        "Players take turns shuffling for the round's letter, A to Z. Don't like it? Watch an ad to reshuffle.",
+        "Swipe through 10 categories and fill each one with a word starting with that letter. You have 60 seconds.",
+        "Done? Hit Lock In. Once 3 players lock in, the clock drops to 5 seconds.",
+        "Answers are revealed on one page. Blank answers score 0. Veto a doubtful answer and everyone votes on it. Spelling is up to you.",
     ]
 
     var body: some View {
@@ -171,7 +172,7 @@ private struct HowToPlaySheet: View {
                     Text("How to play")
                         .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                         .foregroundStyle(Color.letterCream)
-                    Text("Think alike. Don't.")
+                    Text("One letter. Ten categories.")
                         .font(.system(.headline, design: .rounded, weight: .bold))
                         .foregroundStyle(Color.letterYellow)
                 }

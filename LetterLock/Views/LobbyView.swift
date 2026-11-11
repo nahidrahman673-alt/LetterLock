@@ -6,10 +6,10 @@
 import SwiftUI
 
 struct LobbyView: View {
-    let viewModel: GameViewModel
+    @Bindable var viewModel: GameViewModel
 
     var body: some View {
-        VStack(spacing: 20) {
+        VStack(spacing: 18) {
             HStack {
                 Button {
                     viewModel.resetToHome()
@@ -36,11 +36,19 @@ struct LobbyView: View {
                 }
                 .accessibilityElement(children: .ignore)
                 .accessibilityLabel("Room code \(viewModel.roomCode)")
+            }
 
-                Text("Think alike. Don't.")
-                    .font(.system(.headline, design: .rounded, weight: .bold))
-                    .foregroundStyle(Color.letterCream)
-                    .padding(.top, 10)
+            settings
+
+            HStack {
+                Text("PLAYERS \(viewModel.players.count)/\(GameViewModel.playerLimit.upperBound)")
+                    .font(.caption.weight(.semibold))
+                    .tracking(1)
+                    .foregroundStyle(Color.letterMuted)
+                Spacer()
+                if viewModel.isLocalHost {
+                    testPlayerControls
+                }
             }
 
             ScrollView {
@@ -50,16 +58,85 @@ struct LobbyView: View {
                     }
                 }
             }
+            .scrollIndicators(.hidden)
 
-            Button("Start Round") {
-                viewModel.startRound()
+            HostActionButton(
+                viewModel: viewModel,
+                title: "Start Game",
+                waitingText: "Waiting for the host to start",
+                isEnabled: viewModel.canStartGame
+            ) { hostId in
+                viewModel.startGame(by: hostId)
             }
-            .buttonStyle(FilledGameButtonStyle())
+
+            if !viewModel.canStartGame {
+                Text("You need at least \(GameViewModel.playerLimit.lowerBound) players.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.letterMuted)
+            }
         }
         .padding(.horizontal, 24)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
+    }
+
+    private var settings: some View {
+        VStack(spacing: 10) {
+            HStack {
+                Text("Rounds")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterCream)
+                Spacer()
+                Picker("Rounds", selection: $viewModel.totalRounds) {
+                    ForEach(GameViewModel.roundOptions, id: \.self) { count in
+                        Text("\(count)").tag(count)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
+                .disabled(!viewModel.isLocalHost)
+            }
+
+            HStack {
+                Text("Round timer")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterCream)
+                Spacer()
+                Text("\(GameViewModel.roundDuration) seconds")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterMuted)
+            }
+        }
+        .padding(14)
+        .background(Color.letterSurface, in: .rect(cornerRadius: 12))
+    }
+
+    private var testPlayerControls: some View {
+        HStack(spacing: 4) {
+            Text("Test players")
+                .font(.caption)
+                .foregroundStyle(Color.letterMuted)
+            Button {
+                viewModel.removeTestPlayer()
+            } label: {
+                Image(systemName: "minus.circle.fill")
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(viewModel.players.count <= GameViewModel.playerLimit.lowerBound)
+            .accessibilityLabel("Remove a test player")
+
+            Button {
+                viewModel.addTestPlayer()
+            } label: {
+                Image(systemName: "plus.circle.fill")
+                    .frame(width: 44, height: 44)
+            }
+            .disabled(!viewModel.canAddPlayer)
+            .accessibilityLabel("Add a test player")
+        }
+        .font(.title3)
+        .foregroundStyle(Color.letterYellow)
     }
 }
 
@@ -73,12 +150,7 @@ private struct PlayerRow: View {
                 .foregroundStyle(Color.letterCream)
 
             if player.isHost {
-                Text("Host")
-                    .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.letterNavy)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(Color.letterYellow, in: .capsule)
+                HostBadge()
             }
 
             Spacer()
@@ -93,6 +165,12 @@ private struct PlayerRow: View {
     }
 }
 
-#Preview {
+#Preview("Host") {
     LobbyView(viewModel: .preview(.lobby))
+}
+
+#Preview("Guest") {
+    let viewModel = GameViewModel()
+    viewModel.joinGame(code: "ABCD")
+    return LobbyView(viewModel: viewModel)
 }

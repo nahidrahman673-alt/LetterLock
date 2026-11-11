@@ -17,10 +17,14 @@ struct ContentView: View {
                 HomeView(viewModel: viewModel)
             case .lobby:
                 LobbyView(viewModel: viewModel)
+            case .choosingLetter:
+                LetterChoiceView(viewModel: viewModel)
             case .playing:
                 GameBoardView(viewModel: viewModel)
             case .reveal:
                 RevealView(viewModel: viewModel)
+            case .finalResults:
+                FinalResultsView(viewModel: viewModel)
             }
         }
         .preferredColorScheme(.dark)
