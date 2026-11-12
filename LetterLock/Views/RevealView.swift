@@ -233,12 +233,22 @@ struct RevealView: View {
             ) { hostId in
                 viewModel.nextRound(by: hostId)
             }
+        } else if !viewModel.isCategoryScored {
+            // While answers are still appearing, the host can skip to all of them at once.
+            HostActionButton(
+                viewModel: viewModel,
+                title: "Skip",
+                waitingText: "Waiting for the host",
+                isEnabled: viewModel.activeVote == nil
+            ) { hostId in
+                viewModel.skipCategoryReveal(by: hostId)
+            }
         } else {
             HostActionButton(
                 viewModel: viewModel,
                 title: viewModel.isLastRevealCategory ? "Show Round Scores" : "Next Category",
                 waitingText: "Waiting for the host",
-                isEnabled: viewModel.isCategoryScored && viewModel.activeVote == nil
+                isEnabled: viewModel.canMoveOnFromCategory && viewModel.activeVote == nil
             ) { hostId in
                 viewModel.nextCategory(by: hostId)
             }

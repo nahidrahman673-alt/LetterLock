@@ -15,23 +15,6 @@ enum GameState: Equatable {
     case finalResults
 }
 
-/// How the letter shuffle is animated. A per-phone preference in the prototype.
-enum ShuffleStyle: String, CaseIterable, Identifiable {
-    /// Tiles rain down and bounce off the floor; the chosen letter drops in at the back and hops forward.
-    case rain
-    /// Tiles jostle in a tight pile; the chosen letter pops out.
-    case pile
-
-    var id: String { rawValue }
-
-    var title: String {
-        switch self {
-        case .rain: "Rain"
-        case .pile: "Pile"
-        }
-    }
-}
-
 struct Category: Identifiable, Hashable {
     let id: UUID
     var name: String

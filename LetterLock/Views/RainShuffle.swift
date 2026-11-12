@@ -137,8 +137,7 @@ struct RainShuffle: View {
         let scale = Self.perspective(at: depthFraction)
         let width = Self.tileSize * scale
 
-        return LetterTile(letter: drop.letter, size: Self.tileSize, edge: drop.edge, tilt: drop.spin * min(age, 2.5))
-            .scaleEffect(scale)
+        return LetterTile(letter: drop.letter, size: width, edge: drop.edge, tilt: drop.spin * min(age, 2.5))
             .brightness(Self.dimming(at: depthFraction))
             .position(x: width / 2 + drop.x * max(0, size.width - width), y: y)
             // Lower on screen means closer to the viewer, so it draws on top.
@@ -187,8 +186,7 @@ struct RainShuffle: View {
             layer = 10
         }
 
-        return LetterTile(letter: letter, size: Self.finalSize)
-            .scaleEffect(scale)
+        return LetterTile(letter: letter, size: Self.finalSize * scale)
             .brightness(brightness)
             .position(x: size.width / 2, y: y)
             .zIndex(layer)
@@ -272,7 +270,6 @@ struct RainShuffle: View {
 
 #Preview("Rain on repeat") {
     let viewModel = GameViewModel()
-    viewModel.shuffleStyle = .rain
     viewModel.runShuffleDemo()
     return LetterChoiceView(viewModel: viewModel)
 }

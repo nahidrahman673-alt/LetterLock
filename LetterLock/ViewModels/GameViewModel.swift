@@ -11,8 +11,10 @@ final class GameViewModel {
     // MARK: - Rules
 
     static let playerLimit = 2...8
+    /// 1 round was added after playtesting, for quick games.
+    static let roundOptions = [1, 3, 5]
+    static let defaultRounds = 5
     /// First option is the default.
-    static let roundOptions = [5, 3]
     static let timerOptions = [90, 60]
     /// Once this many players lock in, the clock drops to `lockInCutSeconds`.
     static let lockInsToCutTimer = 3
@@ -40,9 +42,8 @@ final class GameViewModel {
 
     private(set) var roomCode = ""
     private(set) var players: [Player] = []
-    var totalRounds = GameViewModel.roundOptions[0]
+    var totalRounds = GameViewModel.defaultRounds
     var roundSeconds = GameViewModel.timerOptions[0]
-    var shuffleStyle: ShuffleStyle = .rain
     private(set) var currentRound = 0
 
     // Letter choice
@@ -66,6 +67,9 @@ final class GameViewModel {
     private(set) var revealedAnswerCount = 0
     /// Points for the current category show only once all its answers are out.
     private(set) var isCategoryScored = false
+    /// Turns on a moment after the points show. Skip becomes Next Category in the same spot, so this
+    /// stops a double tap (or a tap just as the reveal ends) from jumping past the chance to Veto.
+    private(set) var canMoveOnFromCategory = false
     private(set) var reactions: [Reaction] = []
 
     @ObservationIgnored private var timerTask: Task<Void, Never>?
@@ -138,12 +142,33 @@ final class GameViewModel {
         categories.first { $0.id == id }?.name ?? ""
     }
 
+    // MARK: - Player name
+
+    private static let playerNameKey = "playerName"
+    static let playerNameLimit = 16
+
+    /// The name this phone's player goes by. Asked once, then saved on the phone. Empty until set.
+    private(set) var playerName = UserDefaults.standard.string(forKey: GameViewModel.playerNameKey) ?? ""
+
+    var hasPlayerName: Bool { !playerName.isEmpty }
+
+    /// Saves the name (trimmed, up to the limit) and renames this player if they're already in a room.
+    func setPlayerName(_ name: String) {
+        let trimmed = String(name.trimmingCharacters(in: .whitespacesAndNewlines).prefix(Self.playerNameLimit))
+        guard !trimmed.isEmpty else { return }
+        playerName = trimmed
+        UserDefaults.standard.set(trimmed, forKey: Self.playerNameKey)
+        if let index = players.firstIndex(where: \.isLocal) {
+            players[index].name = trimmed
+        }
+    }
+
     // MARK: - Home and lobby
 
     func startNewGame() {
         resetMatch()
         roomCode = Self.makeRoomCode()
-        players = Self.mockPlayers(localPlayerIsHost: true)
+        players = mockPlayers(localPlayerIsHost: true)
         gameState = .lobby
     }
 
@@ -151,7 +176,7 @@ final class GameViewModel {
         guard Self.isValidRoomCode(code) else { return }
         resetMatch()
         roomCode = Self.normalizedRoomCode(code)
-        players = Self.mockPlayers(localPlayerIsHost: false)
+        players = mockPlayers(localPlayerIsHost: false)
         gameState = .lobby
     }
 
@@ -344,10 +369,11 @@ final class GameViewModel {
     // MARK: - Reveal
 
     /// Shows the current category's answers one at a time, then its points.
-    private func startCategoryReveal(after delay: Duration = .seconds(0.6)) {
+    private func startCategoryReveal(after delay: Duration = .seconds(0.4)) {
         revealTask?.cancel()
         revealedAnswerCount = 0
         isCategoryScored = false
+        canMoveOnFromCategory = false
         guard let category = revealCategory else { return }
         let total = answers(for: category.id).count
 
@@ -355,7 +381,8 @@ final class GameViewModel {
             try? await Task.sleep(for: delay)
             self?.sounds.setMusicDucked(false)
             while let self, !Task.isCancelled, self.revealedAnswerCount < total {
-                try? await Task.sleep(for: .seconds(0.9))
+                // Sped up after playtesting (was 0.9s); the host can also Skip.
+                try? await Task.sleep(for: .seconds(0.5))
                 // Hold the reveal while a veto vote is running.
                 while self.activeVote != nil, !Task.isCancelled {
                     try? await Task.sleep(for: .seconds(0.25))
@@ -365,18 +392,41 @@ final class GameViewModel {
                 self.sounds.play(.pop)
                 self.maybeBotReaction()
             }
-            try? await Task.sleep(for: .seconds(0.7))
+            try? await Task.sleep(for: .seconds(0.5))
             guard let self, !Task.isCancelled else { return }
-            self.isCategoryScored = true
-            if self.answers(for: category.id).contains(where: { $0.points == Self.pointsOriginal }) {
-                self.sounds.play(.sparkle)
-            }
+            self.showCategoryPoints()
         }
+    }
+
+    private func showCategoryPoints() {
+        guard let category = revealCategory else { return }
+        isCategoryScored = true
+        if answers(for: category.id).contains(where: { $0.points == Self.pointsOriginal }) {
+            sounds.play(.sparkle)
+        }
+        let index = revealCategoryIndex
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.revealCategoryIndex == index, self.isCategoryScored else { return }
+            self.canMoveOnFromCategory = true
+        }
+    }
+
+    /// Host only. Shows every answer in this category at once, with its points. Players can still
+    /// veto afterwards, so skipping never takes that chance away.
+    func skipCategoryReveal(by playerId: UUID) {
+        guard isHost(playerId), gameState == .reveal, !isCategoryScored, activeVote == nil,
+              let category = revealCategory else { return }
+        revealTask?.cancel()
+        sounds.setMusicDucked(false)
+        revealedAnswerCount = answers(for: category.id).count
+        sounds.play(.pop)
+        showCategoryPoints()
     }
 
     /// Host only. Moves to the next category, then to the round scores.
     func nextCategory(by playerId: UUID) {
-        guard isHost(playerId), gameState == .reveal, isCategoryScored, activeVote == nil,
+        guard isHost(playerId), gameState == .reveal, canMoveOnFromCategory, activeVote == nil,
               revealCategoryIndex < categories.count else { return }
         revealCategoryIndex += 1
         if revealCategory != nil {
@@ -555,6 +605,7 @@ final class GameViewModel {
         revealCategoryIndex = 0
         revealedAnswerCount = 0
         isCategoryScored = false
+        canMoveOnFromCategory = false
         reactions = []
         for index in players.indices { players[index].score = 0 }
     }
@@ -563,9 +614,9 @@ final class GameViewModel {
         (0..<roomCodeLength).compactMap { _ in roomCodeCharacters.randomElement() }.joined()
     }
 
-    private static func mockPlayers(localPlayerIsHost: Bool) -> [Player] {
+    private func mockPlayers(localPlayerIsHost: Bool) -> [Player] {
         [
-            Player(name: "You", isHost: localPlayerIsHost, isReady: true, isLocal: true),
+            Player(name: hasPlayerName ? playerName : "You", isHost: localPlayerIsHost, isReady: true, isLocal: true),
             Player(name: "Sam", isHost: !localPlayerIsHost, isReady: true),
             Player(name: "Priya", isReady: true),
             Player(name: "Leo", isReady: true),

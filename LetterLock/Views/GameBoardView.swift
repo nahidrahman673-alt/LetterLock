@@ -9,7 +9,8 @@ struct GameBoardView: View {
     let viewModel: GameViewModel
 
     @State private var page = 0
-    @FocusState private var focusedCategoryID: UUID?
+    @State private var focusedCategoryID: UUID?
+    @State private var isConfirmingLockIn = false
 
     private var categories: [Category] { viewModel.categories }
 
@@ -43,14 +44,22 @@ struct GameBoardView: View {
         .animation(.snappy(duration: 0.2), value: isTyping)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
+        // Next is the big button by the thumbs; Lock In sits higher up and asks first, because
+        // playtesters kept hitting Lock In by accident when it was the big bottom button.
         .safeAreaInset(edge: .bottom) {
-            lockInButton
+            nextButton
                 .padding(.horizontal, 20)
                 .padding(.vertical, 10)
                 .background(Color.letterNavy)
         }
         .onChange(of: viewModel.isLocalLockedIn) {
             if viewModel.isLocalLockedIn { focusedCategoryID = nil }
+        }
+        .alert("Lock in your answers?", isPresented: $isConfirmingLockIn) {
+            Button("Lock In") { viewModel.lockIn() }
+            Button("Keep answering", role: .cancel) {}
+        } message: {
+            Text("You can't change them after this.")
         }
     }
 
@@ -90,21 +99,38 @@ struct GameBoardView: View {
         .padding(.top, 4)
     }
 
+    /// One circle per player that lights up coral (with a little pop) when they lock in.
+    /// Once the clock is cut, a coral warning takes over.
+    @ViewBuilder
     private var lockInStatus: some View {
         let locked = viewModel.lockedInPlayerIds.count
-        let text = viewModel.wasTimerCut
-            ? "\(locked) players locked in. \(GameViewModel.lockInCutSeconds) seconds left!"
-            : "\(locked) of \(viewModel.players.count) locked in · \(GameViewModel.lockInsToCutTimer) cuts the clock to \(GameViewModel.lockInCutSeconds)s"
-        return HStack(spacing: 6) {
-            Image(systemName: "lock.fill")
-            Text(text)
+        if viewModel.wasTimerCut {
+            Label("\(locked) players locked in. \(GameViewModel.lockInCutSeconds) seconds left!", systemImage: "lock.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.letterNavy)
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .background(Color.letterCoral, in: .capsule)
+        } else {
+            HStack(spacing: 10) {
+                Image(systemName: "lock.fill")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Color.letterMuted)
+                HStack(spacing: 6) {
+                    ForEach(viewModel.players) { player in
+                        LockInDot(
+                            isLocked: viewModel.lockedInPlayerIds.contains(player.id),
+                            isYou: player.isLocal
+                        )
+                    }
+                }
+            }
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(Color.letterSurface, in: .capsule)
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(locked) of \(viewModel.players.count) players locked in. \(GameViewModel.lockInsToCutTimer) cuts the clock to \(GameViewModel.lockInCutSeconds) seconds.")
         }
-        .font(.footnote.weight(.semibold))
-        .foregroundStyle(viewModel.wasTimerCut ? Color.letterNavy : Color.letterMuted)
-        .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(viewModel.wasTimerCut ? Color.letterCoral : Color.letterSurface, in: .capsule)
-        .animation(.snappy, value: viewModel.wasTimerCut)
     }
 
     /// One dot per category. Filled once answered; tap to jump to it.
@@ -148,20 +174,15 @@ struct GameBoardView: View {
                 .minimumScaleFactor(0.6)
                 .lineLimit(isTyping ? 1 : 2)
 
-            TextField(
-                category.name,
+            GameTextField(
                 text: answerBinding(for: category),
-                prompt: Text("Starts with \(viewModel.currentLetter)").foregroundStyle(Color.letterMuted)
+                isFocused: focusBinding(for: category),
+                placeholder: "Starts with \(viewModel.currentLetter)",
+                returnKey: index == categories.count - 1 ? .done : .next,
+                isEnabled: !viewModel.isInputFrozen,
+                onSubmit: { goToPage(index + 1, keepTyping: true) }
             )
-            .font(.title3.weight(.semibold))
-            .foregroundStyle(Color.letterCream)
-            .tint(Color.letterYellow)
-            .textInputAutocapitalization(.words)
-            .autocorrectionDisabled()
-            .submitLabel(index == categories.count - 1 ? .done : .next)
-            .focused($focusedCategoryID, equals: category.id)
-            .onSubmit { goToPage(index + 1, keepTyping: true) }
-            .disabled(viewModel.isInputFrozen)
+            .accessibilityLabel(category.name)
             .padding(.horizontal, 16)
             .frame(minHeight: 60)
             .background(Color.letterSurface, in: .rect(cornerRadius: 14))
@@ -188,31 +209,33 @@ struct GameBoardView: View {
                 .opacity(index == 0 ? 0 : 1)
                 .disabled(index == 0)
 
+                .font(.headline)
+                .foregroundStyle(Color.letterYellow)
+
                 Spacer()
 
-                Button {
-                    goToPage(index + 1, keepTyping: focusedCategoryID != nil)
-                } label: {
-                    Label("Next", systemImage: "chevron.right")
-                        .labelStyle(TrailingIconLabelStyle())
-                        .frame(minHeight: 44)
-                }
-                .opacity(index == categories.count - 1 ? 0 : 1)
-                .disabled(index == categories.count - 1)
+                lockInButton
             }
-            .font(.headline)
-            .foregroundStyle(Color.letterYellow)
 
-            Spacer()
+            // The quote sits centred in the free space above Next. It hides while typing,
+            // when that space is taken by the keyboard.
+            ZStack {
+                if !isTyping {
+                    QuoteView()
+                        .transition(.opacity)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .padding(.horizontal, 20)
         .padding(.top, 8)
     }
 
-    // MARK: - Lock in
+    // MARK: - Next and Lock In
 
+    /// The big bottom button. On the last category it goes back to the first, so it never becomes Lock In.
     @ViewBuilder
-    private var lockInButton: some View {
+    private var nextButton: some View {
         if viewModel.isLocalLockedIn {
             Label("Locked in. Waiting for the clock", systemImage: "lock.fill")
                 .font(.system(.headline, design: .rounded, weight: .bold))
@@ -220,12 +243,34 @@ struct GameBoardView: View {
                 .frame(maxWidth: .infinity, minHeight: 58)
                 .background(Color.letterSurface, in: .rect(cornerRadius: 16))
         } else {
+            let isLast = page >= categories.count - 1
             Button {
-                viewModel.lockIn()
+                goToPage(isLast ? 0 : page + 1, keepTyping: focusedCategoryID != nil)
+            } label: {
+                Label(isLast ? "Back to start" : "Next", systemImage: isLast ? "arrow.uturn.left" : "chevron.right")
+                    .labelStyle(TrailingIconLabelStyle())
+            }
+            .buttonStyle(FilledGameButtonStyle())
+        }
+    }
+
+    /// Small coral button beside Back. Asks before locking in, since it can't be undone.
+    @ViewBuilder
+    private var lockInButton: some View {
+        if !viewModel.isLocalLockedIn {
+            Button {
+                isConfirmingLockIn = true
             } label: {
                 Label("Lock In", systemImage: "lock.open.fill")
+                    .font(.system(.subheadline, design: .rounded, weight: .heavy))
+                    .foregroundStyle(Color.letterNavy)
+                    .padding(.horizontal, 14)
+                    .frame(minHeight: 36)
+                    .background(Color.letterCoral, in: .capsule)
+                    .frame(minHeight: 44)
+                    .contentShape(.rect)
             }
-            .buttonStyle(FilledGameButtonStyle(fill: .letterCoral))
+            .disabled(viewModel.isInputFrozen)
         }
     }
 
@@ -240,11 +285,73 @@ struct GameBoardView: View {
         focusedCategoryID = keepTyping ? categories[target].id : nil
     }
 
+    private func focusBinding(for category: Category) -> Binding<Bool> {
+        Binding(
+            get: { focusedCategoryID == category.id },
+            set: { focused in
+                if focused {
+                    focusedCategoryID = category.id
+                } else if focusedCategoryID == category.id {
+                    focusedCategoryID = nil
+                }
+            }
+        )
+    }
+
     private func answerBinding(for category: Category) -> Binding<String> {
         Binding(
             get: { viewModel.answers[category.id] ?? "" },
             set: { viewModel.answers[category.id] = $0 }
         )
+    }
+}
+
+/// "Great minds ~~think alike.~~ Don't." The game rewards answers nobody else gives.
+private struct QuoteView: View {
+    var body: some View {
+        VStack(spacing: 2) {
+            Text("Great minds \(Text("think alike.").strikethrough(true, color: .letterMuted))")
+                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.letterMuted)
+            Text("Don't.")
+                .font(.system(size: 32, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.letterYellow)
+        }
+        .multilineTextAlignment(.center)
+        .minimumScaleFactor(0.7)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Great minds think alike. Don't.")
+    }
+}
+
+/// A player's lock-in light: dim until they lock in, then coral with one quick pop (no flashing).
+/// Your own has a cream ring so you can spot it.
+private struct LockInDot: View {
+    let isLocked: Bool
+    let isYou: Bool
+
+    var body: some View {
+        Circle()
+            .fill(isLocked ? Color.letterCoral : Color.letterBorder)
+            .frame(width: 14, height: 14)
+            .overlay {
+                if isYou {
+                    Circle().strokeBorder(Color.letterCream, lineWidth: 2)
+                        .padding(-3)
+                }
+            }
+            .shadow(color: isLocked ? Color.letterCoral.opacity(0.7) : .clear, radius: 5)
+            // One pop when it lights up. (Dots only go dark again when a new round starts.)
+            .keyframeAnimator(initialValue: CGFloat(1), trigger: isLocked) { dot, scale in
+                dot.scaleEffect(scale)
+            } keyframes: { _ in
+                KeyframeTrack {
+                    SpringKeyframe(CGFloat(1.6), duration: 0.15)
+                    SpringKeyframe(CGFloat(1), duration: 0.35, spring: .bouncy)
+                }
+            }
+            .animation(.easeOut(duration: 0.2), value: isLocked)
+            .frame(width: 20, height: 20)
     }
 }
 

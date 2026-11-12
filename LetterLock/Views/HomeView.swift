@@ -11,6 +11,27 @@ struct HomeView: View {
     @State private var isShowingHowToPlay = false
     @State private var isShowingJoinPrompt = false
     @State private var joinCode = ""
+    /// What to do once the player has given their name (asked only the first time).
+    @State private var afterName: HomeAction?
+
+    private enum HomeAction: Identifiable {
+        case start, join
+        var id: Self { self }
+    }
+
+    private func perform(_ action: HomeAction) {
+        switch action {
+        case .start:
+            viewModel.startNewGame()
+        case .join:
+            joinCode = ""
+            isShowingJoinPrompt = true
+        }
+    }
+
+    private func request(_ action: HomeAction) {
+        if viewModel.hasPlayerName { perform(action) } else { afterName = action }
+    }
 
     var body: some View {
         VStack(spacing: 14) {
@@ -18,7 +39,8 @@ struct HomeView: View {
 
             LogoView()
 
-            Text("One letter. Ten categories.\nLock it in.")
+            // "Lock it in." in yellow to match the LOCK tiles in the title.
+            Text("One letter. Ten categories.\n\(Text("Lock it in.").foregroundStyle(Color.letterYellow))")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.letterCream)
@@ -33,13 +55,12 @@ struct HomeView: View {
             Spacer(minLength: 16)
 
             Button("Start a game") {
-                viewModel.startNewGame()
+                request(.start)
             }
             .buttonStyle(FilledGameButtonStyle())
 
             Button("Join with a code") {
-                joinCode = ""
-                isShowingJoinPrompt = true
+                request(.join)
             }
             .buttonStyle(OutlinedGameButtonStyle())
 
@@ -59,6 +80,13 @@ struct HomeView: View {
         .background(Color.letterNavy)
         .sheet(isPresented: $isShowingHowToPlay) {
             HowToPlaySheet()
+        }
+        // Its own page, the first time only. Carries on with Start or Join once the name is saved.
+        .fullScreenCover(item: $afterName) { action in
+            NameEntryView(viewModel: viewModel) {
+                // Wait for the page to close before moving on, so the join prompt can appear.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.45) { perform(action) }
+            }
         }
         .alert("Join a game", isPresented: $isShowingJoinPrompt) {
             TextField("Room code", text: $joinCode)
@@ -167,7 +195,7 @@ private struct HowToPlaySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let steps = [
-        "2 to 8 players. 5 rounds (or 3) of 90 seconds (or 60). The host runs the game.",
+        "2 to 8 players. 5 rounds (or 3, or 1 for a quick game) of 90 seconds (or 60). The host runs the game.",
         "Players take turns shuffling the tiles for the round's letter, A to Z. Don't like it? Watch an ad to reshuffle.",
         "Swipe through 10 categories and fill each one with a word starting with that letter.",
         "Done? Hit Lock In. Once 3 players lock in, the clock drops to 5 seconds.",

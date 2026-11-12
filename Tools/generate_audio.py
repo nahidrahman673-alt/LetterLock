@@ -117,37 +117,10 @@ def chip_lead(freq, seconds):
     return lowpass(raw, 0.22)
 
 
-def clap():
-    out = []
-    for i in range(int(SR * 0.2)):
-        t = i / SR
-        # Three quick bursts then a tail, like hands slightly out of sync.
-        bursts = sum(math.exp(-max(0.0, t - d) * 140) * (1 if t >= d else 0) for d in (0.0, 0.011, 0.022))
-        tail = math.exp(-t * 18)
-        noise = random.random() * 2 - 1
-        out.append(noise * (0.5 * bursts + 0.35 * tail))
-    prev, high = 0.0, []
-    for s in out:
-        high.append(s - 0.6 * prev)
-        prev = s
-    return high
-
-
 def play_hook(loop, at, hook, voice, gain, sixteenth, legato=0.85):
     for bar, notes in hook.items():
         for step, length, note in notes:
             mix(loop, at(bar, step), voice(mtof(note), length * sixteenth * legato), gain, wrap=True)
-
-
-def open_hat():
-    out, prev = [], 0.0
-    for i in range(int(SR * 0.22)):
-        t = i / SR
-        noise = random.random() * 2 - 1
-        high = noise - prev
-        prev = noise
-        out.append(high * math.exp(-t * 14))
-    return out
 
 
 def bright_lead(freq, seconds):
@@ -205,104 +178,11 @@ def big_snare():
     return out
 
 
-def pump(buffer, beat_seconds, depth=0.75):
-    """Sidechain-style volume ducking on every beat."""
-    for i in range(len(buffer)):
-        since = (i / SR) % beat_seconds
-        buffer[i] *= 1 - depth * math.exp(-since * 12)
-    return buffer
-
-
 def add_echo(loop, at, hook, voice, gain, sixteenth, delay_steps=3, feedback=0.35, legato=0.85):
     """Plays a hook and a quieter delayed copy for a spacey synth echo."""
     play_hook(loop, at, hook, voice, gain, sixteenth, legato)
     shifted = {bar: [(step + delay_steps, length, note) for step, length, note in notes] for bar, notes in hook.items()}
     play_hook(loop, at, shifted, voice, gain * feedback, sixteenth, legato)
-
-
-def music_neon():
-    """Option 7, Neon Drive: 112 bpm outrun synthwave. Driving 16th bass, big snare, wide pads, soaring lead."""
-    bpm, bars = 112, 8
-    sixteenth = 60 / bpm / 4
-    loop = silence(bars * 16 * sixteenth)
-
-    def at(bar, step):
-        return (bar * 16 + step) * sixteenth
-
-    # Am - F - C - G, twice.
-    chords = [(45, [57, 60, 64]), (41, [53, 57, 60]), (48, [55, 60, 64]), (43, [55, 59, 62])] * 2
-    pads = silence(len(loop) / SR)
-    for bar, (root, tones) in enumerate(chords):
-        for step in (0, 8):
-            mix(loop, at(bar, step), kick(), 0.42, wrap=True)
-        for step in (4, 12):
-            mix(loop, at(bar, step), big_snare(), 0.30, wrap=True)
-        for step in range(0, 16, 2):
-            mix(loop, at(bar, step + 1), shaker(), 0.08, wrap=True)
-        # The classic outrun 16th-note bass.
-        for step in range(16):
-            offset = 12 if step % 4 == 3 else 0
-            mix(loop, at(bar, step), saw_pluck(mtof(root - 12 + offset), sixteenth * 0.9, 12), 0.22, wrap=True)
-        mix(pads, at(bar, 0), supersaw([mtof(n) for n in tones], 16 * sixteenth, attack=0.15, release=0.2), 1.0, wrap=True)
-    mix(loop, 0, pads, 0.30)
-
-    hook = {
-        0: [(0, 6, 76), (6, 2, 74), (8, 4, 72), (12, 4, 69)],
-        1: [(0, 6, 72), (6, 2, 74), (8, 8, 77)],
-        2: [(0, 6, 79), (6, 2, 77), (8, 4, 76), (12, 4, 72)],
-        3: [(0, 8, 74), (8, 4, 71), (12, 4, 74)],
-        4: [(0, 6, 76), (6, 2, 77), (8, 4, 79), (12, 4, 81)],
-        5: [(0, 8, 84), (8, 4, 81), (12, 4, 77)],
-        6: [(0, 4, 79), (4, 4, 76), (8, 4, 79), (12, 4, 84)],
-        7: [(0, 8, 83), (8, 8, 81)],
-    }
-    add_echo(loop, at, hook, bright_lead, 0.13, sixteenth, delay_steps=3)
-    return loop
-
-
-def music_laser():
-    """Option 8, Laser Grid: 128 bpm electro. Four-on-the-floor, pumping supersaw chords, plucky lead riff."""
-    bpm, bars = 128, 8
-    sixteenth = 60 / bpm / 4
-    beat = sixteenth * 4
-    loop = silence(bars * 16 * sixteenth)
-
-    def at(bar, step):
-        return (bar * 16 + step) * sixteenth
-
-    # Cm - Ab - Eb - Bb, twice.
-    chords = [(48, [60, 63, 67]), (44, [56, 60, 63]), (51, [58, 63, 67]), (46, [58, 62, 65])] * 2
-    pads = silence(len(loop) / SR)
-    for bar, (root, tones) in enumerate(chords):
-        for step in (0, 4, 8, 12):
-            mix(loop, at(bar, step), kick(), 0.45, wrap=True)
-        for step in (4, 12):
-            mix(loop, at(bar, step), clap(), 0.26, wrap=True)
-        for step in (2, 6, 10, 14):
-            mix(loop, at(bar, step), open_hat(), 0.10, wrap=True)
-        for step in range(16):
-            mix(loop, at(bar, step), shaker(), 0.05, wrap=True)
-        # Rolling off-beat bass.
-        for step in (2, 6, 10, 14):
-            mix(loop, at(bar, step), saw_pluck(mtof(root - 12), sixteenth * 1.8, 8), 0.30, wrap=True)
-        mix(pads, at(bar, 0), supersaw([mtof(n) for n in tones] + [mtof(tones[0] + 12)], 16 * sixteenth, attack=0.01, release=0.05, cutoff=0.18), 1.0, wrap=True)
-    mix(loop, 0, pump(pads, beat, 0.8), 0.34)
-
-    # Punchy 16th pluck riff that follows the chords.
-    riff = [0, 12, 7, 12, 3, 12, 7, 15]
-    for bar, (root, tones) in enumerate(chords):
-        for step in range(16):
-            if step in (5, 13):
-                continue
-            note = tones[0] + 12 + riff[step % 8] - (12 if riff[step % 8] >= 12 else 0)
-            mix(loop, at(bar, step), saw_pluck(mtof(note), sixteenth * 0.9, 22), 0.10, wrap=True)
-
-    hook = {
-        3: [(8, 2, 79), (10, 2, 82), (12, 4, 84)],
-        7: [(0, 2, 87), (2, 2, 84), (4, 2, 82), (6, 2, 79), (8, 8, 84)],
-    }
-    add_echo(loop, at, hook, bright_lead, 0.12, sixteenth, delay_steps=2)
-    return loop
 
 
 def music_midnight():
@@ -348,130 +228,6 @@ def music_midnight():
     return loop
 
 
-def music_hyperlight():
-    """Hyperlight: 124 bpm sparkling arp-driven synthwave in D major. A fast saw arpeggio carries the track."""
-    bpm, bars = 124, 8
-    sixteenth = 60 / bpm / 4
-    loop = silence(bars * 16 * sixteenth)
-
-    def at(bar, step):
-        return (bar * 16 + step) * sixteenth
-
-    # D - Bm - G - A, twice.
-    chords = [(38, [62, 66, 69]), (35, [59, 62, 66]), (43, [59, 62, 67]), (45, [61, 64, 69])] * 2
-    pads = silence(len(loop) / SR)
-    for bar, (root, tones) in enumerate(chords):
-        for step in (0, 8):
-            mix(loop, at(bar, step), kick(), 0.42, wrap=True)
-        mix(loop, at(bar, 14), kick(), 0.22, wrap=True)
-        for step in (4, 12):
-            mix(loop, at(bar, step), snare(), 0.24, wrap=True)
-            mix(loop, at(bar, step), clap(), 0.14, wrap=True)
-        for step in range(0, 16, 2):
-            mix(loop, at(bar, step + 1), open_hat() if step % 4 == 2 else shaker(), 0.07, wrap=True)
-        # Plain eighth-note bass so the arp has room.
-        for step in range(0, 16, 2):
-            mix(loop, at(bar, step), saw_pluck(mtof(root), sixteenth * 1.7, 7), 0.28, wrap=True)
-        # The star: a rippling 16th saw arpeggio spanning two octaves.
-        arp = [tones[0], tones[1], tones[2], tones[0] + 12, tones[1] + 12, tones[2] + 12, tones[1] + 12, tones[0] + 12]
-        for step in range(16):
-            mix(loop, at(bar, step), saw_pluck(mtof(arp[step % 8]), sixteenth * 0.95, 20), 0.11, wrap=True)
-        mix(pads, at(bar, 0), supersaw([mtof(n - 12) for n in tones], 16 * sixteenth, attack=0.2, release=0.2, cutoff=0.1), 1.0, wrap=True)
-    mix(loop, 0, pads, 0.26)
-
-    # Short, high motifs that answer the arp every other bar.
-    hook = {
-        1: [(8, 2, 86), (10, 2, 85), (12, 4, 81)],
-        3: [(8, 2, 85), (10, 2, 86), (12, 4, 88)],
-        5: [(8, 2, 86), (10, 2, 88), (12, 4, 90)],
-        7: [(4, 2, 88), (6, 2, 86), (8, 8, 85)],
-    }
-    add_echo(loop, at, hook, bright_lead, 0.12, sixteenth, delay_steps=3, feedback=0.4)
-    return loop
-
-
-def music_velocity():
-    """Velocity: 140 bpm high-energy electro in E minor. Hard four-on-the-floor, octave-stab bass, racing lead."""
-    bpm, bars = 140, 8
-    sixteenth = 60 / bpm / 4
-    beat = sixteenth * 4
-    loop = silence(bars * 16 * sixteenth)
-
-    def at(bar, step):
-        return (bar * 16 + step) * sixteenth
-
-    # Em - C - D - B, twice (B major for a tense turnaround).
-    chords = [(40, [55, 59, 64]), (36, [55, 60, 64]), (38, [54, 57, 62]), (35, [54, 59, 63])] * 2
-    pads = silence(len(loop) / SR)
-    for bar, (root, tones) in enumerate(chords):
-        for step in (0, 4, 8, 12):
-            mix(loop, at(bar, step), kick(), 0.48, wrap=True)
-        for step in (4, 12):
-            mix(loop, at(bar, step), big_snare(), 0.22, wrap=True)
-        for step in (2, 6, 10, 14):
-            mix(loop, at(bar, step), open_hat(), 0.11, wrap=True)
-        for step in range(16):
-            mix(loop, at(bar, step), shaker(), 0.06, wrap=True)
-        # Octave stab bass on the off-beats and the "e" before them.
-        for step, offset in ((2, 0), (3, 12), (6, 0), (7, 12), (10, 0), (11, 12), (14, 0), (15, 12)):
-            mix(loop, at(bar, step), saw_pluck(mtof(root - 12 + offset), sixteenth * 0.9, 12), 0.27, wrap=True)
-        mix(pads, at(bar, 0), supersaw([mtof(n + 12) for n in tones], 16 * sixteenth, attack=0.01, release=0.04, cutoff=0.2), 1.0, wrap=True)
-    mix(loop, 0, pump(pads, beat, 0.9), 0.26)
-
-    hook = {
-        0: [(0, 1, 76), (1, 1, 79), (2, 2, 83), (4, 1, 79), (5, 1, 83), (6, 2, 88), (8, 4, 86), (12, 4, 83)],
-        1: [(0, 1, 76), (1, 1, 79), (2, 2, 84), (4, 1, 79), (5, 1, 84), (6, 2, 88), (8, 8, 91)],
-        2: [(0, 1, 78), (1, 1, 81), (2, 2, 86), (4, 1, 81), (5, 1, 86), (6, 2, 90), (8, 4, 88), (12, 4, 86)],
-        3: [(0, 4, 87), (4, 4, 83), (8, 4, 78), (12, 4, 75)],
-    }
-    hook.update({bar + 4: notes for bar, notes in hook.items()})
-    hook[7] = [(0, 2, 87), (2, 2, 90), (4, 2, 87), (6, 2, 83), (8, 8, 91)]
-    add_echo(loop, at, hook, bright_lead, 0.12, sixteenth, delay_steps=2, feedback=0.3, legato=0.8)
-    return loop
-
-
-def music_afterglow():
-    """Afterglow: 110 bpm funky synthwave in G. Syncopated slap-style bass, off-beat chord stabs, singing lead."""
-    bpm, bars = 110, 8
-    sixteenth = 60 / bpm / 4
-    loop = silence(bars * 16 * sixteenth)
-
-    def at(bar, step):
-        return (bar * 16 + step) * sixteenth
-
-    # G - F - C - D, twice.
-    chords = [(43, [59, 62, 67]), (41, [57, 60, 65]), (48, [55, 60, 64]), (38, [57, 62, 66])] * 2
-    for bar, (root, tones) in enumerate(chords):
-        for step, gain in ((0, 0.44), (6, 0.24), (10, 0.36)):
-            mix(loop, at(bar, step), kick(), gain, wrap=True)
-        for step in (4, 12):
-            mix(loop, at(bar, step), clap(), 0.26, wrap=True)
-            mix(loop, at(bar, step), snare(), 0.14, wrap=True)
-        for step in range(16):
-            mix(loop, at(bar, step), shaker(), 0.07 if step % 2 else 0.035, wrap=True)
-        # Funky slap-style bass: short plucks with octave pops and a passing note.
-        for step, offset, length in ((0, 0, 1.5), (3, 12, 0.8), (4, 0, 1), (6, 12, 0.8), (7, 10, 0.8),
-                                     (8, 0, 1.5), (10, 7, 1), (11, 12, 0.8), (14, 0, 1), (15, 2, 0.8)):
-            mix(loop, at(bar, step), saw_pluck(mtof(root - 12 + offset), sixteenth * length, 18), 0.32, wrap=True)
-        # Off-beat supersaw chord stabs.
-        freqs = [mtof(n + 12) for n in tones]
-        for step in (2, 6, 9, 14):
-            mix(loop, at(bar, step), supersaw(freqs, sixteenth * 1.2, attack=0.004, release=0.04, cutoff=0.22), 0.22, wrap=True)
-
-    hook = {
-        0: [(0, 3, 74), (3, 3, 79), (6, 2, 81), (8, 6, 83), (14, 2, 81)],
-        1: [(0, 3, 81), (3, 3, 77), (6, 2, 74), (8, 8, 72)],
-        2: [(0, 3, 76), (3, 3, 79), (6, 2, 84), (8, 6, 83), (14, 2, 79)],
-        3: [(0, 4, 81), (4, 4, 78), (8, 8, 74)],
-        4: [(0, 3, 74), (3, 3, 79), (6, 2, 83), (8, 6, 86), (14, 2, 84)],
-        5: [(0, 3, 84), (3, 3, 81), (6, 2, 77), (8, 8, 81)],
-        6: [(0, 3, 79), (3, 3, 84), (6, 2, 88), (8, 6, 86), (14, 2, 84)],
-        7: [(0, 8, 81), (8, 4, 78), (12, 4, 74)],
-    }
-    add_echo(loop, at, hook, bright_lead, 0.11, sixteenth, delay_steps=3, feedback=0.35)
-    return loop
-
-
 # ---------------------------------------------------------------- sound effects
 
 def tick():
@@ -482,9 +238,8 @@ def tick():
     return out
 
 
-# ---------------------------------------------------------------- end-of-round choices
-# Candidates for the 0:00 sound, picked in the lobby. Both are variations on Final Bell and ring
-# only on notes from D minor (D F A, plus C), so they sit with the Midnight Pulse track.
+# ---------------------------------------------------------------- end of round
+# The 0:00 sound (Dark Gong). It rings only on notes from D minor, so it sits with Midnight Pulse.
 
 D4, F4, A4, C5, D5, F5, A5, D6 = 62, 65, 69, 72, 74, 77, 81, 86
 
@@ -519,18 +274,6 @@ def end_darkgong():
     mix(buffer, 0.0, gong, 0.8)
     mix(buffer, 0.0, ring_bell(A4, 1.8, 2.0), 0.25)
     mix(buffer, 0.02, bell(mtof(D5), 1.5, 2.5), 0.2)
-    return buffer
-
-
-def end_echobell():
-    """Echo Bell: Final Bell with fading repeats in time with the track (100 bpm), like its echoing lead."""
-    buffer = silence(2.4)
-    delay = 0.45  # A dotted eighth at 100 bpm, the same echo the Midnight Pulse lead uses.
-    for k, gain in enumerate([0.7, 0.35, 0.18, 0.09]):
-        mix(buffer, k * delay, ring_bell(A5, 1.2, 2.6), gain)
-        if k == 0:
-            mix(buffer, 0.0, thud(110, 120, 0.2, 20), 0.5)
-            mix(buffer, 0.0, clack(), 0.35)
     return buffer
 
 
@@ -609,15 +352,10 @@ def lock():
 def main():
     directory = sys.argv[1] if len(sys.argv) > 1 else "."
     os.makedirs(directory, exist_ok=True)
-    write(directory, "music_neon", music_neon(), peak=0.85)
-    write(directory, "music_laser", music_laser(), peak=0.85)
     write(directory, "music_midnight", music_midnight(), peak=0.85)
-    write(directory, "music_hyperlight", music_hyperlight(), peak=0.85)
-    write(directory, "music_velocity", music_velocity(), peak=0.85)
-    write(directory, "music_afterglow", music_afterglow(), peak=0.85)
     for name, make in [("tick", tick), ("veto", veto), ("sparkle", sparkle),
                        ("pop", pop), ("clack", clack), ("land", land), ("lock", lock),
-                       ("end_darkgong", end_darkgong), ("end_echobell", end_echobell)]:
+                       ("end_darkgong", end_darkgong)]:
         write(directory, name, make())
     print("Wrote audio to", directory)
 

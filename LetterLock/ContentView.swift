@@ -67,8 +67,7 @@ struct ContentView: View {
             if arguments.contains("-DrawDemo") {
                 viewModel.showFinalResultsDemo(draw: true)
             }
-            if arguments.contains("-ShuffleDemo") || arguments.contains("-PileDemo") {
-                viewModel.shuffleStyle = arguments.contains("-PileDemo") ? .pile : .rain
+            if arguments.contains("-ShuffleDemo") {
                 viewModel.runShuffleDemo()
             }
             #endif
@@ -121,7 +120,7 @@ struct Wordmark: View {
     }
 }
 
-/// Mutes and unmutes. Long-press to choose the music.
+/// Mutes and unmutes music and sounds.
 struct MuteButton: View {
     let audio: AudioManager
 
@@ -138,15 +137,6 @@ struct MuteButton: View {
                 .contentShape(.circle)
         }
         .accessibilityLabel(audio.isMuted ? "Unmute music and sounds" : "Mute music and sounds")
-        .accessibilityHint("Touch and hold to choose the music")
-        // Long-press to switch tracks from any screen; a tap still mutes.
-        .contextMenu {
-            Picker("Music", selection: Binding(get: { audio.track }, set: { audio.selectTrack($0) })) {
-                ForEach(MusicTrack.allCases) { track in
-                    Label(track.title, systemImage: "music.note").tag(track)
-                }
-            }
-        }
     }
 }
 

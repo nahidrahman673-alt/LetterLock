@@ -27,11 +27,12 @@ extension Color {
 
 struct FilledGameButtonStyle: ButtonStyle {
     var fill: Color = .letterYellow
+    var text: Color = .letterNavy
 
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(.system(.title3, design: .rounded, weight: .heavy))
-            .foregroundStyle(Color.letterNavy)
+            .foregroundStyle(text)
             .frame(maxWidth: .infinity, minHeight: 58)
             .background(fill, in: .rect(cornerRadius: 16))
             .opacity(configuration.isPressed ? 0.8 : 1)

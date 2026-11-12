@@ -8,67 +8,88 @@ import SwiftUI
 struct LobbyView: View {
     @Bindable var viewModel: GameViewModel
     @Environment(AudioManager.self) private var audio
+    @State private var isEditingName = false
 
     var body: some View {
-        VStack(spacing: 18) {
-            VStack(spacing: 10) {
-                Text("ROOM CODE")
-                    .font(.caption.weight(.semibold))
-                    .tracking(1)
-                    .foregroundStyle(Color.letterMuted)
+        // The whole page scrolls so every player can be reached, even with 8 in the room.
+        // Start Game stays fixed at the bottom.
+        ScrollView {
+            VStack(spacing: 18) {
+                VStack(spacing: 10) {
+                    Text("ROOM CODE")
+                        .font(.caption.weight(.semibold))
+                        .tracking(1)
+                        .foregroundStyle(Color.letterMuted)
 
-                HStack(spacing: 8) {
-                    ForEach(Array(viewModel.roomCode.enumerated()), id: \.offset) { _, character in
-                        LetterTile(letter: String(character), size: 56)
+                    HStack(spacing: 8) {
+                        ForEach(Array(viewModel.roomCode.enumerated()), id: \.offset) { _, character in
+                            LetterTile(letter: String(character), size: 56)
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel("Room code \(viewModel.roomCode)")
+                }
+
+                settings
+                phoneSettings
+
+                HStack {
+                    Text("PLAYERS \(viewModel.players.count)/\(GameViewModel.playerLimit.upperBound)")
+                        .font(.caption.weight(.semibold))
+                        .tracking(1)
+                        .foregroundStyle(Color.letterMuted)
+                    Spacer()
+                    if viewModel.isLocalHost {
+                        testPlayerControls
                     }
                 }
-                .accessibilityElement(children: .ignore)
-                .accessibilityLabel("Room code \(viewModel.roomCode)")
-            }
 
-            settings
-            phoneSettings
-
-            HStack {
-                Text("PLAYERS \(viewModel.players.count)/\(GameViewModel.playerLimit.upperBound)")
-                    .font(.caption.weight(.semibold))
-                    .tracking(1)
-                    .foregroundStyle(Color.letterMuted)
-                Spacer()
-                if viewModel.isLocalHost {
-                    testPlayerControls
-                }
-            }
-
-            ScrollView {
                 VStack(spacing: 8) {
                     ForEach(viewModel.players) { player in
-                        PlayerRow(player: player)
+                        if player.isLocal {
+                            // Tap your own name to change it.
+                            Button { isEditingName = true } label: {
+                                PlayerRow(player: player)
+                            }
+                            .accessibilityHint("Change your name")
+                        } else {
+                            PlayerRow(player: player)
+                        }
                     }
                 }
             }
-            .scrollIndicators(.hidden)
-
-            HostActionButton(
-                viewModel: viewModel,
-                title: "Start Game",
-                waitingText: "Waiting for the host to start",
-                isEnabled: viewModel.canStartGame
-            ) { hostId in
-                viewModel.startGame(by: hostId)
-            }
-
-            if !viewModel.canStartGame {
-                Text("You need at least \(GameViewModel.playerLimit.lowerBound) players.")
-                    .font(.footnote)
-                    .foregroundStyle(Color.letterMuted)
-            }
+            .padding(.horizontal, 24)
+            .padding(.top, 4)
+            .padding(.bottom, 16)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 4)
-        .padding(.bottom, 8)
+        .scrollIndicators(.hidden)
+        .safeAreaInset(edge: .bottom) {
+            VStack(spacing: 8) {
+                HostActionButton(
+                    viewModel: viewModel,
+                    title: "Start Game",
+                    waitingText: "Waiting for the host to start",
+                    isEnabled: viewModel.canStartGame
+                ) { hostId in
+                    viewModel.startGame(by: hostId)
+                }
+
+                if !viewModel.canStartGame {
+                    Text("You need at least \(GameViewModel.playerLimit.lowerBound) players.")
+                        .font(.footnote)
+                        .foregroundStyle(Color.letterMuted)
+                }
+            }
+            .padding(.horizontal, 24)
+            .padding(.top, 10)
+            .padding(.bottom, 8)
+            .background(Color.letterNavy)
+        }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
+        .sheet(isPresented: $isEditingName) {
+            NameEntryView(viewModel: viewModel, buttonTitle: "Save") {}
+        }
     }
 
     private var settings: some View {
@@ -84,7 +105,7 @@ struct LobbyView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 120)
+                .frame(width: 150)
                 .disabled(!viewModel.isLocalHost)
             }
 
@@ -99,7 +120,7 @@ struct LobbyView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .frame(width: 120)
+                .frame(width: 150)
                 .disabled(!viewModel.isLocalHost)
             }
         }
@@ -115,61 +136,13 @@ struct LobbyView: View {
                 .tracking(1)
                 .foregroundStyle(Color.letterMuted)
 
-            HStack {
-                Text("Shuffle")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.letterCream)
-                Spacer()
-                Picker("Shuffle animation", selection: $viewModel.shuffleStyle) {
-                    ForEach(ShuffleStyle.allCases) { style in
-                        Text(style.title).tag(style)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .frame(width: 150)
-            }
-
-            // Music only; sound effects keep playing so the Time's up options can be heard on their own.
+            // Music only; sound effects keep playing. The mute button silences both.
             Toggle(isOn: Binding(get: { audio.isMusicOn }, set: { audio.setMusicOn($0) })) {
                 Text("Background music")
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.letterCream)
             }
             .tint(Color.letterMint)
-
-            HStack {
-                Text("Music")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.letterCream)
-                Spacer()
-                // Too many options for a segmented control, so a menu.
-                Picker("Music", selection: Binding(get: { audio.track }, set: { audio.selectTrack($0) })) {
-                    ForEach(MusicTrack.allCases) { track in
-                        Text(track.title).tag(track)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(Color.letterYellow)
-                .lineLimit(1)
-                .fixedSize()
-            }
-
-            HStack {
-                Text("Time's up")
-                    .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.letterCream)
-                Spacer()
-                // Choosing a sound plays it, so the options can be compared one after another.
-                Picker("Time's up sound", selection: Binding(get: { audio.endSound }, set: { audio.selectEndSound($0) })) {
-                    ForEach(EndSound.allCases) { sound in
-                        Text(sound.title).tag(sound)
-                    }
-                }
-                .pickerStyle(.menu)
-                .tint(Color.letterYellow)
-                .lineLimit(1)
-                .fixedSize()
-            }
         }
         .padding(14)
         .background(Color.letterSurface, in: .rect(cornerRadius: 12))
@@ -214,6 +187,13 @@ private struct PlayerRow: View {
 
             if player.isHost {
                 HostBadge()
+            }
+
+            if player.isLocal {
+                Image(systemName: "pencil")
+                    .font(.footnote.weight(.bold))
+                    .foregroundStyle(Color.letterYellow)
+                    .accessibilityHidden(true)
             }
 
             Spacer()
