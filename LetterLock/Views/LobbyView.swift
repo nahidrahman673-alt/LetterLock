@@ -7,22 +7,10 @@ import SwiftUI
 
 struct LobbyView: View {
     @Bindable var viewModel: GameViewModel
+    @Environment(AudioManager.self) private var audio
 
     var body: some View {
         VStack(spacing: 18) {
-            HStack {
-                Button {
-                    viewModel.resetToHome()
-                } label: {
-                    Text("Leave")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(Color.letterYellow)
-                        .frame(minWidth: 44, minHeight: 44)
-                        .contentShape(.rect)
-                }
-                Spacer()
-            }
-
             VStack(spacing: 10) {
                 Text("ROOM CODE")
                     .font(.caption.weight(.semibold))
@@ -39,6 +27,7 @@ struct LobbyView: View {
             }
 
             settings
+            phoneSettings
 
             HStack {
                 Text("PLAYERS \(viewModel.players.count)/\(GameViewModel.playerLimit.upperBound)")
@@ -76,6 +65,7 @@ struct LobbyView: View {
             }
         }
         .padding(.horizontal, 24)
+        .padding(.top, 4)
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
@@ -103,9 +93,82 @@ struct LobbyView: View {
                     .font(.body.weight(.semibold))
                     .foregroundStyle(Color.letterCream)
                 Spacer()
-                Text("\(GameViewModel.roundDuration) seconds")
+                Picker("Round timer", selection: $viewModel.roundSeconds) {
+                    ForEach(GameViewModel.timerOptions, id: \.self) { seconds in
+                        Text("\(seconds)s").tag(seconds)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 120)
+                .disabled(!viewModel.isLocalHost)
+            }
+        }
+        .padding(14)
+        .background(Color.letterSurface, in: .rect(cornerRadius: 12))
+    }
+
+    /// Personal preferences, so anyone can change them, not just the host.
+    private var phoneSettings: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ON THIS PHONE")
+                .font(.caption2.weight(.bold))
+                .tracking(1)
+                .foregroundStyle(Color.letterMuted)
+
+            HStack {
+                Text("Shuffle")
                     .font(.body.weight(.semibold))
-                    .foregroundStyle(Color.letterMuted)
+                    .foregroundStyle(Color.letterCream)
+                Spacer()
+                Picker("Shuffle animation", selection: $viewModel.shuffleStyle) {
+                    ForEach(ShuffleStyle.allCases) { style in
+                        Text(style.title).tag(style)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .frame(width: 150)
+            }
+
+            // Music only; sound effects keep playing so the Time's up options can be heard on their own.
+            Toggle(isOn: Binding(get: { audio.isMusicOn }, set: { audio.setMusicOn($0) })) {
+                Text("Background music")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterCream)
+            }
+            .tint(Color.letterMint)
+
+            HStack {
+                Text("Music")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterCream)
+                Spacer()
+                // Too many options for a segmented control, so a menu.
+                Picker("Music", selection: Binding(get: { audio.track }, set: { audio.selectTrack($0) })) {
+                    ForEach(MusicTrack.allCases) { track in
+                        Text(track.title).tag(track)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Color.letterYellow)
+                .lineLimit(1)
+                .fixedSize()
+            }
+
+            HStack {
+                Text("Time's up")
+                    .font(.body.weight(.semibold))
+                    .foregroundStyle(Color.letterCream)
+                Spacer()
+                // Choosing a sound plays it, so the options can be compared one after another.
+                Picker("Time's up sound", selection: Binding(get: { audio.endSound }, set: { audio.selectEndSound($0) })) {
+                    ForEach(EndSound.allCases) { sound in
+                        Text(sound.title).tag(sound)
+                    }
+                }
+                .pickerStyle(.menu)
+                .tint(Color.letterYellow)
+                .lineLimit(1)
+                .fixedSize()
             }
         }
         .padding(14)
@@ -167,10 +230,12 @@ private struct PlayerRow: View {
 
 #Preview("Host") {
     LobbyView(viewModel: .preview(.lobby))
+        .environment(AudioManager())
 }
 
 #Preview("Guest") {
     let viewModel = GameViewModel()
     viewModel.joinGame(code: "ABCD")
     return LobbyView(viewModel: viewModel)
+        .environment(AudioManager())
 }

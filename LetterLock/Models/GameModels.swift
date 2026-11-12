@@ -15,6 +15,23 @@ enum GameState: Equatable {
     case finalResults
 }
 
+/// How the letter shuffle is animated. A per-phone preference in the prototype.
+enum ShuffleStyle: String, CaseIterable, Identifiable {
+    /// Tiles rain down and bounce off the floor; the chosen letter drops in at the back and hops forward.
+    case rain
+    /// Tiles jostle in a tight pile; the chosen letter pops out.
+    case pile
+
+    var id: String { rawValue }
+
+    var title: String {
+        switch self {
+        case .rain: "Rain"
+        case .pile: "Pile"
+        }
+    }
+}
+
 struct Category: Identifiable, Hashable {
     let id: UUID
     var name: String
@@ -105,6 +122,15 @@ struct RoundAnswer: Identifiable, Hashable {
     var matchKey: String {
         text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
     }
+}
+
+/// An emoji floating up the reveal screen.
+struct Reaction: Identifiable, Equatable {
+    let id = UUID()
+    let emoji: String
+    let playerName: String
+    /// Horizontal position across the screen, 0 to 1.
+    let lane: Double
 }
 
 /// A vote started by tapping Veto on an answer. Everyone except the answer's author votes.

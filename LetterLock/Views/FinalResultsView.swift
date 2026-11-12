@@ -16,24 +16,34 @@ struct FinalResultsView: View {
                 .font(.caption.weight(.semibold))
                 .tracking(1)
                 .foregroundStyle(Color.letterMuted)
-                .padding(.top, 24)
+                .padding(.top, 8)
 
-            if let winner = standings.first {
-                Image(systemName: "trophy.fill")
+            if let topTotal = standings.first?.total {
+                let winners = standings.filter { $0.total == topTotal }.map(\.player)
+
+                Image(systemName: winners.count > 1 ? "medal.fill" : "trophy.fill")
                     .font(.system(size: 56))
                     .foregroundStyle(Color.letterYellow)
-                Text(winner.player.isLocal ? "You win!" : "\(winner.player.name) wins!")
+                Text(headline(for: winners))
                     .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                     .foregroundStyle(Color.letterCream)
+                if winners.count > 1 {
+                    Text("\(winners.map { $0.isLocal ? "You" : $0.name }.formatted(.list(type: .and))) share first place")
+                        .font(.headline)
+                        .multilineTextAlignment(.center)
+                        .foregroundStyle(Color.letterMuted)
+                }
             }
 
             ScrollView {
                 VStack(spacing: 8) {
-                    ForEach(Array(standings.enumerated()), id: \.element.player.id) { rank, entry in
+                    ForEach(standings, id: \.player.id) { entry in
+                        // Equal totals share a place: 1, 1, 3, 4.
+                        let place = 1 + standings.filter { $0.total > entry.total }.count
                         HStack(spacing: 12) {
-                            Text("\(rank + 1)")
+                            Text("\(place)")
                                 .font(.system(.headline, design: .rounded, weight: .heavy))
-                                .foregroundStyle(rank == 0 ? Color.letterYellow : Color.letterMuted)
+                                .foregroundStyle(place == 1 ? Color.letterYellow : Color.letterMuted)
                                 .frame(width: 24)
                             Text(entry.player.name)
                                 .font(.body.weight(.semibold))
@@ -69,8 +79,22 @@ struct FinalResultsView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
     }
+
+    /// Equal top totals are a draw; there is no tie-break.
+    private func headline(for winners: [Player]) -> String {
+        guard winners.count == 1, let winner = winners.first else { return "It's a draw!" }
+        return winner.isLocal ? "You win!" : "\(winner.name) wins!"
+    }
 }
 
 #Preview {
     FinalResultsView(viewModel: .preview(.finalResults))
 }
+
+#if DEBUG
+#Preview("Draw") {
+    let viewModel = GameViewModel()
+    viewModel.showFinalResultsDemo(draw: true)
+    return FinalResultsView(viewModel: viewModel)
+}
+#endif

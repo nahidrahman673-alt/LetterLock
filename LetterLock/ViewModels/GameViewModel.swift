@@ -10,17 +10,22 @@ import Observation
 final class GameViewModel {
     // MARK: - Rules
 
-    static let roundDuration = 60
     static let playerLimit = 2...8
-    static let roundOptions = [3, 5]
+    /// First option is the default.
+    static let roundOptions = [5, 3]
+    static let timerOptions = [90, 60]
     /// Once this many players lock in, the clock drops to `lockInCutSeconds`.
     static let lockInsToCutTimer = 3
     static let lockInCutSeconds = 5
+    /// Ticks play for the last few seconds of every round.
+    static let countdownSeconds = 5
     static let adDuration = 5
     static let roomCodeLength = 4
 
     static let pointsOriginal = 10
     static let pointsShared = 5
+
+    static let reactionEmoji = ["😂", "🤔", "🔥", "💀", "👏"]
 
     static let letterPool = (UnicodeScalar("A").value...UnicodeScalar("Z").value)
         .compactMap { UnicodeScalar($0).map { String(Character($0)) } }
@@ -31,10 +36,13 @@ final class GameViewModel {
 
     var gameState: GameState = .home
     var categories = Category.defaults
+    @ObservationIgnored var sounds: SoundPlaying = SilentSoundPlayer()
 
     private(set) var roomCode = ""
     private(set) var players: [Player] = []
-    var totalRounds = 3
+    var totalRounds = GameViewModel.roundOptions[0]
+    var roundSeconds = GameViewModel.timerOptions[0]
+    var shuffleStyle: ShuffleStyle = .rain
     private(set) var currentRound = 0
 
     // Letter choice
@@ -45,19 +53,26 @@ final class GameViewModel {
     private(set) var adSecondsRemaining = 0
 
     // Round in play
-    private(set) var timeRemaining = GameViewModel.roundDuration
+    private(set) var timeRemaining = GameViewModel.timerOptions[0]
     var answers: [UUID: String] = [:]
     private(set) var lockedInPlayerIds: Set<UUID> = []
     private(set) var wasTimerCut = false
 
-    // Reveal
+    // Reveal: one category at a time, answers appearing one by one.
     private(set) var roundAnswers: [RoundAnswer] = []
     private(set) var activeVote: VetoVote?
+    /// Equal to `categories.count` once every category is done and the scores are showing.
+    private(set) var revealCategoryIndex = 0
+    private(set) var revealedAnswerCount = 0
+    /// Points for the current category show only once all its answers are out.
+    private(set) var isCategoryScored = false
+    private(set) var reactions: [Reaction] = []
 
     @ObservationIgnored private var timerTask: Task<Void, Never>?
     @ObservationIgnored private var shuffleTask: Task<Void, Never>?
     @ObservationIgnored private var adTask: Task<Void, Never>?
     @ObservationIgnored private var voteTask: Task<Void, Never>?
+    @ObservationIgnored private var revealTask: Task<Void, Never>?
     /// For each simulated player, the seconds-remaining mark at which they lock in.
     @ObservationIgnored private var botLockInMarks: [UUID: Int] = [:]
 
@@ -85,6 +100,13 @@ final class GameViewModel {
 
     var isInputFrozen: Bool { gameState != .playing || isLocalLockedIn }
 
+    var revealCategory: Category? {
+        categories.indices.contains(revealCategoryIndex) ? categories[revealCategoryIndex] : nil
+    }
+
+    var isShowingRoundScores: Bool { gameState == .reveal && revealCategoryIndex >= categories.count }
+    var isLastRevealCategory: Bool { revealCategoryIndex == categories.count - 1 }
+
     func roundPoints(for playerId: UUID) -> Int {
         roundAnswers.filter { $0.playerId == playerId }.reduce(0) { $0 + $1.points }
     }
@@ -96,8 +118,16 @@ final class GameViewModel {
             .sorted { $0.1 > $1.1 }
     }
 
+    /// In player order, so answers reveal Player 1, Player 2, and so on.
     func answers(for categoryId: UUID) -> [RoundAnswer] {
         roundAnswers.filter { $0.categoryId == categoryId }
+    }
+
+    func isRevealed(_ answer: RoundAnswer) -> Bool {
+        guard let index = categories.firstIndex(where: { $0.id == answer.categoryId }) else { return false }
+        if index != revealCategoryIndex { return index < revealCategoryIndex }
+        let position = answers(for: answer.categoryId).firstIndex { $0.id == answer.id } ?? .max
+        return position < revealedAnswerCount
     }
 
     func player(_ id: UUID) -> Player? { players.first { $0.id == id } }
@@ -178,6 +208,7 @@ final class GameViewModel {
         guard isLocalChooser, hasChosenLetter, !isShuffling else { return }
         adSecondsRemaining = Self.adDuration
         isShowingAd = true
+        sounds.setMusicDucked(true)
         adTask = Task { [weak self] in
             while let self, self.adSecondsRemaining > 0 {
                 try? await Task.sleep(for: .seconds(1))
@@ -190,10 +221,12 @@ final class GameViewModel {
     func closeAd() {
         guard adSecondsRemaining == 0 else { return }
         isShowingAd = false
+        sounds.setMusicDucked(false)
         runShuffle()
     }
 
-    /// Flicks through random tiles, slowing down, then lands on the final letter.
+    /// Flicks through random letters, slowing down, then lands on the final one.
+    /// The view turns each flick into tiles scrambling past each other.
     private func runShuffle() {
         guard !isShuffling, gameState == .choosingLetter else { return }
         isShuffling = true
@@ -201,19 +234,21 @@ final class GameViewModel {
         let finalLetter = Self.letterPool.randomElement() ?? "A"
 
         shuffleTask = Task { [weak self] in
-            let flicks = 18
+            let flicks = 16
             for step in 0..<flicks {
-                try? await Task.sleep(for: .milliseconds(45 + step * step))
+                try? await Task.sleep(for: .milliseconds(90 + step * step))
                 guard let self, !Task.isCancelled else { return }
                 var next = Self.letterPool.randomElement() ?? "A"
                 while next == self.currentLetter { next = Self.letterPool.randomElement() ?? "A" }
                 self.currentLetter = next
+                self.sounds.play(.clack)
             }
-            try? await Task.sleep(for: .milliseconds(380))
+            try? await Task.sleep(for: .milliseconds(420))
             guard let self, !Task.isCancelled else { return }
             self.currentLetter = finalLetter
             self.isShuffling = false
             self.hasChosenLetter = true
+            self.sounds.play(.land)
         }
     }
 
@@ -223,21 +258,23 @@ final class GameViewModel {
     func startRound(by playerId: UUID) {
         guard isHost(playerId), gameState == .choosingLetter, hasChosenLetter else { return }
         cancelTasks()
-        timeRemaining = Self.roundDuration
+        timeRemaining = roundSeconds
         answers = [:]
         lockedInPlayerIds = []
         wasTimerCut = false
         roundAnswers = []
         activeVote = nil
+        let lockWindow = max(Self.lockInCutSeconds + 1, roundSeconds / 5)...max(Self.lockInCutSeconds + 2, roundSeconds * 4 / 5)
         botLockInMarks = Dictionary(uniqueKeysWithValues: players.filter { !$0.isLocal }.map {
-            ($0.id, Int.random(in: 12...48))
+            ($0.id, Int.random(in: lockWindow))
         })
         gameState = .playing
         startTimer()
     }
 
     func lockIn() {
-        guard let localPlayer, gameState == .playing else { return }
+        guard let localPlayer, gameState == .playing, !isLocalLockedIn else { return }
+        sounds.play(.lockIn)
         lockIn(localPlayer.id)
     }
 
@@ -245,8 +282,17 @@ final class GameViewModel {
         guard !lockedInPlayerIds.contains(playerId) else { return }
         lockedInPlayerIds.insert(playerId)
         if lockedInPlayerIds.count >= Self.lockInsToCutTimer, timeRemaining > Self.lockInCutSeconds {
-            timeRemaining = Self.lockInCutSeconds
             wasTimerCut = true
+            setTimeRemaining(Self.lockInCutSeconds)
+        }
+    }
+
+    /// Every change to the clock goes through here so the countdown sounds stay in step.
+    private func setTimeRemaining(_ seconds: Int) {
+        timeRemaining = max(0, seconds)
+        if (1...Self.countdownSeconds).contains(timeRemaining) {
+            sounds.setMusicDucked(true)
+            sounds.play(.tick)
         }
     }
 
@@ -259,7 +305,7 @@ final class GameViewModel {
                     return
                 }
                 guard let self else { return }
-                self.timeRemaining -= 1
+                self.setTimeRemaining(self.timeRemaining - 1)
                 for (id, mark) in self.botLockInMarks where self.timeRemaining <= mark {
                     self.lockIn(id)
                 }
@@ -275,6 +321,7 @@ final class GameViewModel {
         guard gameState == .playing else { return }
         timerTask?.cancel()
         timerTask = nil
+        sounds.play(.timeUp)
         roundAnswers = players.flatMap { player in
             categories.map { category in
                 let text = player.isLocal
@@ -288,16 +335,86 @@ final class GameViewModel {
             }
         }
         scoreRound()
+        reactions = []
+        revealCategoryIndex = 0
         gameState = .reveal
+        startCategoryReveal(after: .seconds(1.8))
     }
 
-    // MARK: - Reveal, veto and scoring
+    // MARK: - Reveal
+
+    /// Shows the current category's answers one at a time, then its points.
+    private func startCategoryReveal(after delay: Duration = .seconds(0.6)) {
+        revealTask?.cancel()
+        revealedAnswerCount = 0
+        isCategoryScored = false
+        guard let category = revealCategory else { return }
+        let total = answers(for: category.id).count
+
+        revealTask = Task { [weak self] in
+            try? await Task.sleep(for: delay)
+            self?.sounds.setMusicDucked(false)
+            while let self, !Task.isCancelled, self.revealedAnswerCount < total {
+                try? await Task.sleep(for: .seconds(0.9))
+                // Hold the reveal while a veto vote is running.
+                while self.activeVote != nil, !Task.isCancelled {
+                    try? await Task.sleep(for: .seconds(0.25))
+                }
+                guard !Task.isCancelled else { return }
+                self.revealedAnswerCount += 1
+                self.sounds.play(.pop)
+                self.maybeBotReaction()
+            }
+            try? await Task.sleep(for: .seconds(0.7))
+            guard let self, !Task.isCancelled else { return }
+            self.isCategoryScored = true
+            if self.answers(for: category.id).contains(where: { $0.points == Self.pointsOriginal }) {
+                self.sounds.play(.sparkle)
+            }
+        }
+    }
+
+    /// Host only. Moves to the next category, then to the round scores.
+    func nextCategory(by playerId: UUID) {
+        guard isHost(playerId), gameState == .reveal, isCategoryScored, activeVote == nil,
+              revealCategoryIndex < categories.count else { return }
+        revealCategoryIndex += 1
+        if revealCategory != nil {
+            startCategoryReveal()
+        } else {
+            revealTask?.cancel()
+        }
+    }
+
+    // MARK: - Reactions
+
+    func react(_ emoji: String) {
+        guard let localPlayer else { return }
+        addReaction(emoji, from: localPlayer.name)
+    }
+
+    private func maybeBotReaction() {
+        guard Double.random(in: 0..<1) < 0.4,
+              let bot = players.filter({ !$0.isLocal }).randomElement(),
+              let emoji = Self.reactionEmoji.randomElement() else { return }
+        addReaction(emoji, from: bot.name)
+    }
+
+    private func addReaction(_ emoji: String, from name: String) {
+        let reaction = Reaction(emoji: emoji, playerName: name, lane: Double.random(in: 0.12...0.88))
+        reactions.append(reaction)
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(2.6))
+            self?.reactions.removeAll { $0.id == reaction.id }
+        }
+    }
+
+    // MARK: - Veto and scoring
 
     /// Blank or rejected answers score 0. Otherwise: unique +10, exactly two the same +5, three or more 0.
     private func scoreRound() {
-        let counted = roundAnswers.filter { !$0.isBlank && $0.verdict == .accepted }
         var matches: [String: Int] = [:]
-        for answer in counted {
+        for answer in roundAnswers where !answer.isBlank && answer.verdict == .accepted {
             matches["\(answer.categoryId)|\(answer.matchKey)", default: 0] += 1
         }
         for index in roundAnswers.indices {
@@ -316,7 +433,7 @@ final class GameViewModel {
 
     func canVeto(_ answer: RoundAnswer) -> Bool {
         gameState == .reveal && activeVote == nil && !answer.isBlank && !answer.wasVoted
-            && answer.playerId != localPlayer?.id
+            && answer.playerId != localPlayer?.id && isRevealed(answer)
     }
 
     /// Starts a vote among everyone except the answer's author.
@@ -324,10 +441,12 @@ final class GameViewModel {
         guard let answer = answer(answerId), canVeto(answer) else { return }
         let voters = players.filter { $0.id != answer.playerId }.map(\.id)
         activeVote = VetoVote(answerId: answerId, voterIds: voters)
+        sounds.play(.veto)
 
         // Simulated players vote over the next couple of seconds.
         let bots = players.filter { !$0.isLocal && voters.contains($0.id) }.map(\.id)
         voteTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(0.8))
             for id in bots.shuffled() {
                 try? await Task.sleep(for: .milliseconds(Int.random(in: 400...1100)))
                 guard let self, !Task.isCancelled else { return }
@@ -364,15 +483,17 @@ final class GameViewModel {
 
     /// Host only. Banks the round's points, then moves to the next letter or the final results.
     func nextRound(by playerId: UUID) {
-        guard isHost(playerId), gameState == .reveal else { return }
+        guard isHost(playerId), isShowingRoundScores else { return }
         cancelTasks()
         activeVote = nil
         for index in players.indices {
             players[index].score += roundPoints(for: players[index].id)
         }
         roundAnswers = []
+        reactions = []
         if isLastRound {
             gameState = .finalResults
+            sounds.play(.sparkle)
         } else {
             currentRound += 1
             beginLetterChoice()
@@ -409,11 +530,13 @@ final class GameViewModel {
     }
 
     private func cancelTasks() {
-        for task in [timerTask, shuffleTask, adTask, voteTask] { task?.cancel() }
+        for task in [timerTask, shuffleTask, adTask, voteTask, revealTask] { task?.cancel() }
         timerTask = nil
         shuffleTask = nil
         adTask = nil
         voteTask = nil
+        revealTask = nil
+        sounds.setMusicDucked(false)
     }
 
     private func resetMatch() {
@@ -423,12 +546,16 @@ final class GameViewModel {
         hasChosenLetter = false
         isShuffling = false
         isShowingAd = false
-        timeRemaining = Self.roundDuration
+        timeRemaining = roundSeconds
         answers = [:]
         lockedInPlayerIds = []
         wasTimerCut = false
         roundAnswers = []
         activeVote = nil
+        revealCategoryIndex = 0
+        revealedAnswerCount = 0
+        isCategoryScored = false
+        reactions = []
         for index in players.indices { players[index].score = 0 }
     }
 
@@ -445,6 +572,41 @@ final class GameViewModel {
         ]
     }
 }
+
+// MARK: - Shuffle demo
+
+#if DEBUG
+extension GameViewModel {
+    /// Debug only: jumps straight to Final results with set scores. Launch with `-DrawDemo` to see a draw.
+    func showFinalResultsDemo(draw: Bool) {
+        startNewGame()
+        let totals = draw ? [140, 140, 95, 120] : [140, 125, 95, 120]
+        for (index, total) in totals.enumerated() where players.indices.contains(index) {
+            players[index].score = total
+        }
+        gameState = .finalResults
+    }
+
+    /// Debug only: shuffles over and over so the animation can be watched on repeat.
+    /// Launch with `-ShuffleDemo`, or use the "Shuffle on repeat" preview.
+    func runShuffleDemo() {
+        startNewGame()
+        guard let host = hostPlayer else { return }
+        startGame(by: host.id)
+        shuffleTask = Task { [weak self] in
+            while !Task.isCancelled {
+                guard let self, self.gameState == .choosingLetter else { return }
+                self.currentLetter = "?"
+                self.hasChosenLetter = false
+                try? await Task.sleep(for: .seconds(0.9))
+                self.runShuffle()
+                // runShuffle replaces shuffleTask, so this loop keeps its own timing.
+                try? await Task.sleep(for: .seconds(6.5))
+            }
+        }
+    }
+}
+#endif
 
 // MARK: - SwiftUI previews
 
@@ -469,6 +631,7 @@ extension GameViewModel {
 
         viewModel.endRound()
         if state == .finalResults {
+            viewModel.revealCategoryIndex = viewModel.categories.count
             viewModel.nextRound(by: host.id)
             viewModel.gameState = .finalResults
         }

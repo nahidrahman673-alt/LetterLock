@@ -82,7 +82,12 @@ struct HomeView: View {
     }
 }
 
-private struct LogoView: View {
+/// The LetterLock tile logo. Full size on Home; the title bar uses a small copy so the
+/// identity is the same everywhere.
+struct LogoView: View {
+    /// 46 on Home. Everything else scales from this.
+    var tileSize: CGFloat = 46
+
     private let topRow: [(letter: String, edge: Color, tilt: Double)] = [
         ("L", .letterYellow, -6),
         ("E", .letterMint, 3),
@@ -98,22 +103,26 @@ private struct LogoView: View {
         ("K", -5),
     ]
 
+    private var scale: CGFloat { tileSize / 46 }
+
     var body: some View {
-        VStack(spacing: 14) {
-            HStack(spacing: 6) {
+        VStack(spacing: 14 * scale) {
+            HStack(spacing: 6 * scale) {
                 ForEach(topRow.indices, id: \.self) { index in
                     LetterTile(
                         letter: topRow[index].letter,
+                        size: tileSize,
                         edge: topRow[index].edge,
                         tilt: topRow[index].tilt
                     )
                 }
             }
 
-            HStack(spacing: 6) {
+            HStack(spacing: 6 * scale) {
                 ForEach(bottomRow.indices, id: \.self) { index in
                     LetterTile(
                         letter: bottomRow[index].letter,
+                        size: tileSize,
                         fill: .letterYellow,
                         edge: .letterCream,
                         tilt: bottomRow[index].tilt
@@ -121,19 +130,19 @@ private struct LogoView: View {
                 }
 
                 Image(systemName: "lock.fill")
-                    .font(.system(size: 22, weight: .bold))
+                    .font(.system(size: 22 * scale, weight: .bold))
                     .foregroundStyle(Color.letterYellow)
-                    .frame(width: 46, height: 53)
-                    .background(Color.letterSurface, in: .rect(cornerRadius: 10))
+                    .frame(width: tileSize, height: tileSize * 1.16)
+                    .background(Color.letterSurface, in: .rect(cornerRadius: 10 * scale))
                     .overlay {
-                        RoundedRectangle(cornerRadius: 10)
-                            .strokeBorder(Color.letterYellow, lineWidth: 2)
+                        RoundedRectangle(cornerRadius: 10 * scale)
+                            .strokeBorder(Color.letterYellow, lineWidth: max(1, 2 * scale))
                     }
                     .rotationEffect(.degrees(6))
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Letter Lock")
+        .accessibilityLabel("LetterLock")
         .accessibilityAddTraits(.isHeader)
     }
 }
@@ -158,11 +167,12 @@ private struct HowToPlaySheet: View {
     @Environment(\.dismiss) private var dismiss
 
     private let steps = [
-        "2 to 8 players, 3 or 5 rounds. The host starts each round.",
-        "Players take turns shuffling for the round's letter, A to Z. Don't like it? Watch an ad to reshuffle.",
-        "Swipe through 10 categories and fill each one with a word starting with that letter. You have 60 seconds.",
+        "2 to 8 players. 5 rounds (or 3) of 90 seconds (or 60). The host runs the game.",
+        "Players take turns shuffling the tiles for the round's letter, A to Z. Don't like it? Watch an ad to reshuffle.",
+        "Swipe through 10 categories and fill each one with a word starting with that letter.",
         "Done? Hit Lock In. Once 3 players lock in, the clock drops to 5 seconds.",
-        "Answers are revealed on one page. Blank answers score 0. Veto a doubtful answer and everyone votes on it. Spelling is up to you.",
+        "Answers are revealed one category at a time, one player at a time. Blank answers score 0 and spelling is up to you.",
+        "Doubt an answer? Veto it and everyone votes. Tap the emoji to react as answers land.",
     ]
 
     var body: some View {

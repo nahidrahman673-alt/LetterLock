@@ -13,10 +13,17 @@ struct GameBoardView: View {
 
     private var categories: [Category] { viewModel.categories }
 
+    /// While the keyboard is up, the screen tightens so the answer box and Back/Next
+    /// stay clear of the Lock In button.
+    private var isTyping: Bool { focusedCategoryID != nil }
+
     var body: some View {
-        VStack(spacing: 14) {
+        VStack(spacing: isTyping ? 6 : 14) {
             header
-            lockInStatus
+            // Hidden while typing to save room, unless the clock has just been cut.
+            if !isTyping || viewModel.wasTimerCut {
+                lockInStatus
+            }
             pageDots
 
             TabView(selection: $page) {
@@ -33,6 +40,7 @@ struct GameBoardView: View {
                 }
             }
         }
+        .animation(.snappy(duration: 0.2), value: isTyping)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
         .safeAreaInset(edge: .bottom) {
@@ -50,7 +58,7 @@ struct GameBoardView: View {
 
     private var header: some View {
         HStack(alignment: .center) {
-            LetterTile(letter: viewModel.currentLetter, size: 56)
+            LetterTile(letter: viewModel.currentLetter, size: isTyping ? 38 : 56)
                 .accessibilityLabel("Letter \(viewModel.currentLetter)")
 
             Text("ROUND \(viewModel.currentRound)/\(viewModel.totalRounds)")
@@ -63,21 +71,23 @@ struct GameBoardView: View {
 
             VStack(alignment: .trailing, spacing: 0) {
                 Text("\(viewModel.timeRemaining)")
-                    .font(.system(size: 48, weight: .heavy, design: .rounded))
+                    .font(.system(size: isTyping ? 32 : 48, weight: .heavy, design: .rounded))
                     .monospacedDigit()
                     .contentTransition(.numericText(countsDown: true))
                     .animation(.snappy, value: viewModel.timeRemaining)
                     .foregroundStyle(viewModel.timeRemaining <= 10 ? Color.letterCoral : Color.letterCream)
-                Text("SECONDS")
-                    .font(.caption2.weight(.semibold))
-                    .tracking(1)
-                    .foregroundStyle(Color.letterMuted)
+                if !isTyping {
+                    Text("SECONDS")
+                        .font(.caption2.weight(.semibold))
+                        .tracking(1)
+                        .foregroundStyle(Color.letterMuted)
+                }
             }
             .accessibilityElement(children: .ignore)
             .accessibilityLabel("\(viewModel.timeRemaining) seconds left")
         }
         .padding(.horizontal, 20)
-        .padding(.top, 12)
+        .padding(.top, 4)
     }
 
     private var lockInStatus: some View {
@@ -111,7 +121,7 @@ struct GameBoardView: View {
                             Capsule().strokeBorder(Color.letterYellow, lineWidth: 2)
                         }
                     }
-                    .frame(height: 44)
+                    .frame(height: isTyping ? 28 : 44)
                     .contentShape(.rect)
                     .onTapGesture {
                         withAnimation(.snappy) { page = index }
@@ -126,17 +136,17 @@ struct GameBoardView: View {
     // MARK: - Pages
 
     private func categoryPage(_ category: Category, index: Int) -> some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: isTyping ? 8 : 14) {
             Text("\(index + 1) OF \(categories.count)")
                 .font(.caption.weight(.semibold))
                 .tracking(1)
                 .foregroundStyle(Color.letterMuted)
 
             Text(category.name)
-                .font(.system(.largeTitle, design: .rounded, weight: .heavy))
+                .font(.system(isTyping ? .title : .largeTitle, design: .rounded, weight: .heavy))
                 .foregroundStyle(Color.letterCream)
                 .minimumScaleFactor(0.6)
-                .lineLimit(2)
+                .lineLimit(isTyping ? 1 : 2)
 
             TextField(
                 category.name,
