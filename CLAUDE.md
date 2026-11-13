@@ -37,7 +37,10 @@ compliance (privacy manifest and labels, ad network tracking prompt, honest age 
 - 10 fixed categories, one per page: Boy's Name, Girl's Name, Country, City, Animal, Food/Drink,
   Movies/Series, Book/Movie Character, Celebrity, Brand.
 - Lock In ends your answering. When 3 players lock in, the clock drops to 5 seconds.
-- Scoring per category: unique 10, two the same 5 each, three or more 0, blank 0, vetoed 0.
+- Scoring per category: unique 10, two the same 5 each, three or more 0, blank 0, vetoed 0, wrong letter 0.
+- Letter check (`LetterRule` in GameModels.swift): the first word must start with the letter; a leading
+  "The/A/An" is skipped; accents ignored; answers starting with a number are left to Veto. A coral note
+  warns while typing; the reveal shows "Wrong letter".
   Matching ignores capitals and spaces; spelling is never checked.
 - Reveal: one category at a time, one player at a time; points show once all are revealed.
   Veto starts a vote of everyone but the author; more rejects than accepts scores it 0, a tie keeps it.

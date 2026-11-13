@@ -101,9 +101,38 @@ struct RoundAnswer: Identifiable, Hashable {
 
     var isBlank: Bool { text.isEmpty }
 
+    /// Set when the round ends: the answer doesn't start with the round's letter, so it scores 0.
+    var hasWrongLetter = false
+
+    /// Blank, wrong-letter and vetoed answers score nothing and don't count as matches.
+    var canScore: Bool { !isBlank && !hasWrongLetter && verdict == .accepted }
+
     /// Spelling is left to the players, so answers match on case and spacing only.
     var matchKey: String {
         text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
+    }
+}
+
+/// Checks that an answer starts with the round's letter.
+enum LetterRule {
+    /// A leading "The", "A" or "An" is skipped, so "The Matrix" counts for M, not T.
+    private static let skippedWords: Set<String> = ["the", "a", "an"]
+
+    /// True if the answer fits the letter. Capitals and accents don't matter ("Émile" fits E).
+    /// Answers starting with a number ("7 Up") can't be judged here, so they're left to a veto.
+    static func fits(_ text: String, letter: String) -> Bool {
+        var words = text.split(whereSeparator: \.isWhitespace).map(String.init)
+        if words.count > 1, skippedWords.contains(words[0].lowercased()) {
+            words.removeFirst()
+        }
+        // Ignore quote marks and brackets in front of the word.
+        guard let first = words.first?.first(where: { $0.isLetter || $0.isNumber }) else { return false }
+        if first.isNumber { return true }
+        return plain(first) == plain(Character(letter))
+    }
+
+    private static func plain(_ character: Character) -> String {
+        String(character).folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
     }
 }
 

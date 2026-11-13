@@ -199,6 +199,14 @@ struct GameBoardView: View {
                 focusedCategoryID = category.id
             }
 
+            // A gentle warning, not a block: the answer can still be fixed before time's up.
+            if hasWrongLetter(category) {
+                Label("Must start with \(viewModel.currentLetter)", systemImage: "exclamationmark.circle.fill")
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(Color.letterCoral)
+                    .transition(.opacity)
+            }
+
             HStack {
                 Button {
                     goToPage(index - 1, keepTyping: focusedCategoryID != nil)
@@ -303,6 +311,13 @@ struct GameBoardView: View {
             get: { viewModel.answers[category.id] ?? "" },
             set: { viewModel.answers[category.id] = $0 }
         )
+    }
+
+    private func hasWrongLetter(_ category: Category) -> Bool {
+        let text = viewModel.answers[category.id, default: ""].trimmingCharacters(in: .whitespaces)
+        // Wait for a second word before judging "The", "A" or "An", which get skipped.
+        let waitingForMore = ["the", "a", "an"].contains(text.lowercased())
+        return !text.isEmpty && !waitingForMore && !LetterRule.fits(text, letter: viewModel.currentLetter)
     }
 }
 

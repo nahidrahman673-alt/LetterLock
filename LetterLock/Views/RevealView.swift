@@ -106,7 +106,8 @@ struct RevealView: View {
     private func answerRow(_ answer: RoundAnswer, isNext: Bool) -> some View {
         let name = viewModel.player(answer.playerId)?.name ?? ""
         let isRevealed = viewModel.isRevealed(answer)
-        let isRejected = answer.verdict == .rejected
+        // Wrong-letter answers look like vetoed ones: crossed out and greyed.
+        let isRejected = answer.verdict == .rejected || answer.hasWrongLetter
 
         return HStack(spacing: 10) {
             VStack(alignment: .leading, spacing: 2) {
@@ -150,6 +151,10 @@ struct RevealView: View {
                 .frame(minHeight: 44)
                 .contentShape(.rect)
                 .accessibilityLabel("Veto \(answer.text) by \(name)")
+            } else if isRevealed, answer.hasWrongLetter {
+                Text("Wrong letter")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Color.letterCoral)
             } else if answer.wasVoted {
                 Text(isRejected ? "Rejected" : "Upheld")
                     .font(.caption2.weight(.bold))

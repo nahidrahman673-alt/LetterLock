@@ -352,11 +352,13 @@ final class GameViewModel {
                 let text = player.isLocal
                     ? answers[category.id, default: ""]
                     : MockAnswerBank.answer(for: category.name, letter: currentLetter)
-                return RoundAnswer(
+                var answer = RoundAnswer(
                     playerId: player.id,
                     categoryId: category.id,
                     text: text.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
+                answer.hasWrongLetter = !answer.isBlank && !LetterRule.fits(answer.text, letter: currentLetter)
+                return answer
             }
         }
         scoreRound()
@@ -461,15 +463,15 @@ final class GameViewModel {
 
     // MARK: - Veto and scoring
 
-    /// Blank or rejected answers score 0. Otherwise: unique +10, exactly two the same +5, three or more 0.
+    /// Blank, wrong-letter or rejected answers score 0. Otherwise: unique +10, exactly two the same +5, three or more 0.
     private func scoreRound() {
         var matches: [String: Int] = [:]
-        for answer in roundAnswers where !answer.isBlank && answer.verdict == .accepted {
+        for answer in roundAnswers where answer.canScore {
             matches["\(answer.categoryId)|\(answer.matchKey)", default: 0] += 1
         }
         for index in roundAnswers.indices {
             let answer = roundAnswers[index]
-            guard !answer.isBlank, answer.verdict == .accepted else {
+            guard answer.canScore else {
                 roundAnswers[index].points = 0
                 continue
             }
@@ -482,7 +484,7 @@ final class GameViewModel {
     }
 
     func canVeto(_ answer: RoundAnswer) -> Bool {
-        gameState == .reveal && activeVote == nil && !answer.isBlank && !answer.wasVoted
+        gameState == .reveal && activeVote == nil && answer.canScore && !answer.wasVoted
             && answer.playerId != localPlayer?.id && isRevealed(answer)
     }
 
