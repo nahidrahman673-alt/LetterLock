@@ -57,6 +57,21 @@ struct LobbyView: View {
                         }
                     }
                 }
+
+                #if DEBUG
+                // Prototype only: a real tie is rare, so this jumps straight to one.
+                if viewModel.isLocalHost, viewModel.canStartGame {
+                    Button {
+                        viewModel.startSuddenDeathDemo()
+                    } label: {
+                        Label("Prototype: try Sudden Death", systemImage: "bolt.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(Color.letterCoral)
+                            .frame(maxWidth: .infinity, minHeight: 44)
+                    }
+                    .padding(.top, 8)
+                }
+                #endif
             }
             .padding(.horizontal, 24)
             .padding(.top, 4)

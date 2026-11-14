@@ -12,7 +12,31 @@ enum GameState: Equatable {
     case choosingLetter
     case playing
     case reveal
+    /// Tie-break after the last round when two or more players share the top total.
+    case suddenDeath
     case finalResults
+}
+
+/// The steps of one Sudden Death try.
+enum SuddenDeathPhase: Equatable {
+    /// "Sudden Death!" and who's in it, before the category and letter show.
+    case intro
+    /// The tied players race to lock in one answer.
+    case answering
+    /// Everyone's answer and time. Judges can Veto, then the host moves on.
+    case result
+}
+
+/// How one Sudden Death answer did.
+enum SuddenDeathOutcome: Equatable {
+    case winner
+    /// Right letter and unique, but someone was faster.
+    case slower
+    case blank
+    case wrongLetter
+    /// Two or more players gave the same answer, which knocks them all out.
+    case sameAnswer
+    case rejected
 }
 
 struct Category: Identifiable, Hashable {
@@ -107,6 +131,16 @@ struct RoundAnswer: Identifiable, Hashable {
     /// Blank, wrong-letter and vetoed answers score nothing and don't count as matches.
     var canScore: Bool { !isBlank && !hasWrongLetter && verdict == .accepted }
 
+    /// The player was still typing it when the clock hit 0:00 and hadn't locked in, so it may be
+    /// half a word. Shown at the reveal so others can decide whether to Veto.
+    var wasCutOff = false
+
+    /// Set when players vote that this answer is the same as another one (Donut and Doughnut).
+    var mergedKey: String?
+
+    /// What scoring compares: the voted match if there is one, otherwise the answer itself.
+    var scoringKey: String { mergedKey ?? matchKey }
+
     /// Spelling is left to the players, so answers match on case and spacing only.
     var matchKey: String {
         text.lowercased().split(whereSeparator: \.isWhitespace).joined(separator: " ")
@@ -151,11 +185,63 @@ struct VetoVote: Identifiable, Equatable {
     let answerId: UUID
     let voterIds: [UUID]
     var ballots: [UUID: Bool] = [:]
+    /// Set for a "Same answer?" vote: is `answerId` the same answer as this one? A ballot of true means "Same".
+    var matchAnswerId: UUID?
 
+    var isMatchVote: Bool { matchAnswerId != nil }
     var acceptCount: Int { ballots.values.filter { $0 }.count }
     var rejectCount: Int { ballots.values.filter { !$0 }.count }
     var isComplete: Bool { ballots.count == voterIds.count }
 
     /// Majority rejects. A tie keeps the answer.
     var verdict: AnswerVerdict { rejectCount > acceptCount ? .rejected : .accepted }
+
+    /// "Same answer?" votes: more Same than Different makes them a match. A tie keeps them apart.
+    var isSameAnswer: Bool { acceptCount > rejectCount }
+}
+
+/// Spots answers that are probably the same thing spelled differently, so the app can suggest a
+/// "Same answer?" vote. It only suggests; players decide.
+enum AnswerSimilarity {
+    static func looksAlike(_ a: String, _ b: String) -> Bool {
+        let first = letters(a), second = letters(b)
+        guard !first.isEmpty, !second.isEmpty else { return false }
+        if first == second { return true }   // "New York" and "NewYork"
+        if min(first.count, second.count) >= 4, distance(first, second) <= 1 { return true }   // "Marcus" and "Markus"
+        let soundA = skeleton(first), soundB = skeleton(second)
+        return soundA.count >= 3 && soundA == soundB   // "Donut" and "Doughnut"
+    }
+
+    /// Lowercase letters only, accents removed.
+    private static func letters(_ text: String) -> String {
+        text.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil).filter(\.isLetter)
+    }
+
+    /// A rough "sounds like" key: the first letter, then the consonants, with silent "gh" dropped.
+    private static func skeleton(_ word: String) -> String {
+        guard let head = word.first else { return "" }
+        var rest = String(word.dropFirst())
+        for (from, to) in [("gh", ""), ("ph", "f"), ("ck", "k")] {
+            rest = rest.replacingOccurrences(of: from, with: to)
+        }
+        var result = String(head)
+        for character in rest where !"aeiouyhw".contains(character) && character != result.last {
+            result.append(character)
+        }
+        return result
+    }
+
+    /// How many single-letter edits turn one word into the other.
+    private static func distance(_ a: String, _ b: String) -> Int {
+        let a = Array(a), b = Array(b)
+        var previous = Array(0...b.count)
+        for i in 1...a.count {
+            var current = [i] + Array(repeating: 0, count: b.count)
+            for j in 1...max(b.count, 1) where !b.isEmpty {
+                current[j] = min(previous[j] + 1, current[j - 1] + 1, previous[j - 1] + (a[i - 1] == b[j - 1] ? 0 : 1))
+            }
+            previous = current
+        }
+        return previous[b.count]
+    }
 }

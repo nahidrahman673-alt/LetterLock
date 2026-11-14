@@ -35,6 +35,8 @@ struct ContentView: View {
                 GameBoardView(viewModel: viewModel)
             case .reveal:
                 RevealView(viewModel: viewModel)
+            case .suddenDeath:
+                SuddenDeathView(viewModel: viewModel)
             case .finalResults:
                 FinalResultsView(viewModel: viewModel)
             }

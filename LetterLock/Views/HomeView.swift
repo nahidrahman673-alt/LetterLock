@@ -201,6 +201,7 @@ private struct HowToPlaySheet: View {
         "Done? Hit Lock In. Once 3 players lock in, the clock drops to 5 seconds.",
         "Answers are revealed one category at a time, one player at a time. Blank answers score 0 and spelling is up to you.",
         "Doubt an answer? Veto it and everyone votes. Tap the emoji to react as answers land.",
+        "Tied for first at the end? Sudden Death: one category, 10 seconds, fastest right answer wins. Same answer knocks you both out. After 3 tries with no winner, you share the win.",
     ]
 
     var body: some View {

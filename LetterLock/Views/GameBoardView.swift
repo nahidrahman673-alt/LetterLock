@@ -309,7 +309,7 @@ struct GameBoardView: View {
     private func answerBinding(for category: Category) -> Binding<String> {
         Binding(
             get: { viewModel.answers[category.id] ?? "" },
-            set: { viewModel.answers[category.id] = $0 }
+            set: { viewModel.setAnswer($0, for: category.id) }
         )
     }
 

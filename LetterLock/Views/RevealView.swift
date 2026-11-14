@@ -9,6 +9,8 @@ import SwiftUI
 struct RevealView: View {
     let viewModel: GameViewModel
 
+    @State private var isPickingMatch = false
+
     var body: some View {
         VStack(spacing: 14) {
             header
@@ -27,6 +29,9 @@ struct RevealView: View {
             .animation(.snappy(duration: 0.35), value: viewModel.revealCategoryIndex)
 
             if !viewModel.isShowingRoundScores {
+                if let category = viewModel.revealCategory, viewModel.isCategoryScored {
+                    matchBar(for: category)
+                }
                 reactionBar
             }
 
@@ -43,6 +48,45 @@ struct RevealView: View {
         .sheet(item: voteBinding) { _ in
             VetoVoteSheet(viewModel: viewModel)
         }
+        .sheet(isPresented: $isPickingMatch) {
+            if let category = viewModel.revealCategory {
+                MatchPickerSheet(viewModel: viewModel, category: category)
+            }
+        }
+    }
+
+    // MARK: - Same answer?
+
+    /// The app's suggestion (two answers that look or sound alike), or a way to pick two yourself.
+    @ViewBuilder
+    private func matchBar(for category: Category) -> some View {
+        let suggestion = viewModel.suggestedMatches(in: category.id).first
+        HStack(spacing: 10) {
+            if let (first, second) = suggestion {
+                Button {
+                    viewModel.flagMatch(first.id, second.id)
+                } label: {
+                    Label("\u{201C}\(first.text)\u{201D} = \u{201C}\(second.text)\u{201D}?", systemImage: "equal.circle.fill")
+                        .font(.subheadline.weight(.bold))
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.7)
+                        .foregroundStyle(Color.letterNavy)
+                        .padding(.horizontal, 14)
+                        .frame(minHeight: 40)
+                        .background(Color.letterLilac, in: .capsule)
+                }
+                .accessibilityLabel("Vote on whether \(first.text) and \(second.text) are the same answer")
+            }
+            Spacer(minLength: 0)
+            Button(suggestion == nil ? "Same answer?" : "Other") {
+                isPickingMatch = true
+            }
+            .font(.subheadline.weight(.semibold))
+            .foregroundStyle(Color.letterLilac)
+            .frame(minHeight: 44)
+            .disabled(viewModel.activeVote != nil)
+        }
+        .transition(.opacity)
     }
 
     // MARK: - Header
@@ -135,6 +179,17 @@ struct RevealView: View {
                             } animation: { _ in .easeInOut(duration: 0.5) }
                             .accessibilityLabel("Hidden")
                     }
+                }
+
+                if isRevealed, answer.wasCutOff, !answer.hasWrongLetter {
+                    Label("Cut off at 0:00", systemImage: "scissors")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.letterLilac)
+                }
+                if isRevealed, answer.mergedKey != nil, viewModel.isCategoryScored {
+                    Label("Voted the same answer", systemImage: "equal.circle.fill")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.letterMint)
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -341,24 +396,45 @@ private struct PointsPill: View {
     }
 }
 
-private struct VetoVoteSheet: View {
+/// Shared by the reveal and Sudden Death.
+struct VetoVoteSheet: View {
     let viewModel: GameViewModel
 
     var body: some View {
         if let vote = viewModel.activeVote, let answer = viewModel.answer(vote.answerId) {
+            let other = vote.matchAnswerId.flatMap(viewModel.answer)
             VStack(alignment: .leading, spacing: 18) {
-                Text("VETO VOTE")
+                Text(other == nil ? "VETO VOTE" : "SAME ANSWER?")
                     .font(.caption.weight(.bold))
                     .tracking(1)
-                    .foregroundStyle(Color.letterCoral)
+                    .foregroundStyle(other == nil ? Color.letterCoral : Color.letterLilac)
 
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Does \u{201C}\(answer.text)\u{201D} count?")
-                        .font(.system(.title2, design: .rounded, weight: .heavy))
-                        .foregroundStyle(Color.letterCream)
-                    Text("\(viewModel.player(answer.playerId)?.name ?? "") · \(viewModel.categoryName(for: answer.categoryId)) · \(viewModel.currentLetter)")
-                        .font(.subheadline)
-                        .foregroundStyle(Color.letterMuted)
+                    if let other {
+                        Text("Are \u{201C}\(answer.text)\u{201D} and \u{201C}\(other.text)\u{201D} the same answer?")
+                            .font(.system(.title2, design: .rounded, weight: .heavy))
+                            .foregroundStyle(Color.letterCream)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(viewModel.player(answer.playerId)?.name ?? "") and \(viewModel.player(other.playerId)?.name ?? "") · \(viewModel.categoryName(for: answer.categoryId))")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.letterMuted)
+                        Text("If most say Same, they count as a match and the points change.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.letterMuted)
+                    } else {
+                        Text("Does \u{201C}\(answer.text)\u{201D} count?")
+                            .font(.system(.title2, design: .rounded, weight: .heavy))
+                            .foregroundStyle(Color.letterCream)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(viewModel.player(answer.playerId)?.name ?? "") · \(viewModel.categoryName(for: answer.categoryId)) · \(viewModel.currentLetter)")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.letterMuted)
+                        if answer.wasCutOff {
+                            Label("Cut off at 0:00", systemImage: "scissors")
+                                .font(.footnote.weight(.bold))
+                                .foregroundStyle(Color.letterLilac)
+                        }
+                    }
                 }
 
                 VStack(spacing: 6) {
@@ -370,11 +446,20 @@ private struct VetoVoteSheet: View {
                 Spacer(minLength: 0)
 
                 if vote.isComplete {
-                    Text(vote.verdict == .rejected
-                         ? "Rejected \(vote.rejectCount)–\(vote.acceptCount). It scores 0."
-                         : "Upheld \(vote.acceptCount)–\(vote.rejectCount). It keeps its points.")
-                        .font(.headline)
-                        .foregroundStyle(vote.verdict == .rejected ? Color.letterCoral : Color.letterMint)
+                    if vote.isMatchVote {
+                        Text(vote.isSameAnswer
+                             ? "Same \(vote.acceptCount)–\(vote.rejectCount). They now count as a match."
+                             : "Different \(vote.rejectCount)–\(vote.acceptCount). They keep their points.")
+                            .font(.headline)
+                            .foregroundStyle(vote.isSameAnswer ? Color.letterMint : Color.letterLilac)
+                    } else {
+                        let isSuddenDeath = viewModel.gameState == .suddenDeath
+                        Text(vote.verdict == .rejected
+                             ? "Rejected \(vote.rejectCount)–\(vote.acceptCount). \(isSuddenDeath ? "It's out." : "It scores 0.")"
+                             : "Upheld \(vote.acceptCount)–\(vote.rejectCount). \(isSuddenDeath ? "It stands." : "It keeps its points.")")
+                            .font(.headline)
+                            .foregroundStyle(vote.verdict == .rejected ? Color.letterCoral : Color.letterMint)
+                    }
 
                     Button("Done") {
                         viewModel.dismissVote()
@@ -382,9 +467,9 @@ private struct VetoVoteSheet: View {
                     .buttonStyle(FilledGameButtonStyle())
                 } else if !viewModel.hasLocalVoted() {
                     HStack(spacing: 12) {
-                        Button("Reject") { viewModel.castVote(accept: false) }
+                        Button(vote.isMatchVote ? "Different" : "Reject") { viewModel.castVote(accept: false) }
                             .buttonStyle(FilledGameButtonStyle(fill: .letterCoral))
-                        Button("Accept") { viewModel.castVote(accept: true) }
+                        Button(vote.isMatchVote ? "Same" : "Accept") { viewModel.castVote(accept: true) }
                             .buttonStyle(FilledGameButtonStyle(fill: .letterMint))
                     }
                 } else {
@@ -412,9 +497,9 @@ private struct VetoVoteSheet: View {
             Spacer()
             switch ballot {
             case .some(true):
-                Label("Accept", systemImage: "checkmark.circle.fill").foregroundStyle(Color.letterMint)
+                Label(vote.isMatchVote ? "Same" : "Accept", systemImage: "checkmark.circle.fill").foregroundStyle(Color.letterMint)
             case .some(false):
-                Label("Reject", systemImage: "xmark.circle.fill").foregroundStyle(Color.letterCoral)
+                Label(vote.isMatchVote ? "Different" : "Reject", systemImage: "xmark.circle.fill").foregroundStyle(Color.letterCoral)
             case .none:
                 Text("Voting…").foregroundStyle(Color.letterMuted)
             }
@@ -423,6 +508,88 @@ private struct VetoVoteSheet: View {
         .padding(.horizontal, 14)
         .frame(minHeight: 44)
         .background(Color.letterSurface, in: .rect(cornerRadius: 10))
+    }
+}
+
+/// Pick any two answers in this category to ask everyone whether they're the same answer
+/// (for pairs the app didn't spot, like "NYC" and "New York").
+private struct MatchPickerSheet: View {
+    let viewModel: GameViewModel
+    let category: Category
+
+    @Environment(\.dismiss) private var dismiss
+    @State private var picked: [UUID] = []
+
+    private var candidates: [RoundAnswer] { viewModel.answers(for: category.id).filter(\.canScore) }
+
+    private var canStart: Bool {
+        guard picked.count == 2, let first = viewModel.answer(picked[0]), let second = viewModel.answer(picked[1]) else { return false }
+        return viewModel.canFlagMatch(first, second)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 16) {
+            Text("SAME ANSWER?")
+                .font(.caption.weight(.bold))
+                .tracking(1)
+                .foregroundStyle(Color.letterLilac)
+            Text("Pick the two answers that mean the same thing.")
+                .font(.system(.title2, design: .rounded, weight: .heavy))
+                .foregroundStyle(Color.letterCream)
+
+            ScrollView {
+                VStack(spacing: 8) {
+                    ForEach(candidates) { answer in
+                        let isPicked = picked.contains(answer.id)
+                        Button {
+                            if isPicked {
+                                picked.removeAll { $0 == answer.id }
+                            } else {
+                                picked = Array((picked + [answer.id]).suffix(2))
+                            }
+                        } label: {
+                            HStack {
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text(viewModel.player(answer.playerId)?.name.uppercased() ?? "")
+                                        .font(.caption2.weight(.bold))
+                                        .foregroundStyle(Color.letterMuted)
+                                    Text(answer.text)
+                                        .font(.system(.title3, design: .rounded, weight: .heavy))
+                                        .foregroundStyle(Color.letterCream)
+                                }
+                                Spacer()
+                                Image(systemName: isPicked ? "checkmark.circle.fill" : "circle")
+                                    .font(.title3)
+                                    .foregroundStyle(isPicked ? Color.letterLilac : Color.letterBorder)
+                            }
+                            .padding(.horizontal, 14)
+                            .frame(minHeight: 56)
+                            .background(Color.letterSurface, in: .rect(cornerRadius: 12))
+                        }
+                        .accessibilityAddTraits(isPicked ? .isSelected : [])
+                    }
+                }
+            }
+
+            if picked.count == 2, !canStart {
+                Text("Those two already count as the same, or were voted on already.")
+                    .font(.footnote)
+                    .foregroundStyle(Color.letterMuted)
+            }
+
+            Button("Ask everyone") {
+                let pair = picked
+                dismiss()
+                viewModel.flagMatch(pair[0], pair[1])
+            }
+            .buttonStyle(FilledGameButtonStyle(fill: .letterLilac))
+            .disabled(!canStart)
+            .opacity(canStart ? 1 : 0.4)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.letterNavy)
+        .presentationDetents([.large])
     }
 }
 

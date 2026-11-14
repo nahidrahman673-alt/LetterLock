@@ -18,9 +18,8 @@ struct FinalResultsView: View {
                 .foregroundStyle(Color.letterMuted)
                 .padding(.top, 8)
 
-            if let topTotal = standings.first?.total {
-                let winners = standings.filter { $0.total == topTotal }.map(\.player)
-
+            let winners = viewModel.champions
+            if !winners.isEmpty {
                 Image(systemName: winners.count > 1 ? "medal.fill" : "trophy.fill")
                     .font(.system(size: 56))
                     .foregroundStyle(Color.letterYellow)
@@ -32,14 +31,18 @@ struct FinalResultsView: View {
                         .font(.headline)
                         .multilineTextAlignment(.center)
                         .foregroundStyle(Color.letterMuted)
+                } else if let winnerId = viewModel.suddenDeathWinnerId {
+                    Text("Won Sudden Death in \(GameViewModel.formatSeconds(viewModel.suddenDeathSeconds(for: winnerId)))")
+                        .font(.headline)
+                        .foregroundStyle(Color.letterCoral)
                 }
             }
 
             ScrollView {
                 VStack(spacing: 8) {
                     ForEach(standings, id: \.player.id) { entry in
-                        // Equal totals share a place: 1, 1, 3, 4.
-                        let place = 1 + standings.filter { $0.total > entry.total }.count
+                        // Equal totals share a place (1, 1, 3), unless Sudden Death split them.
+                        let place = viewModel.finalPlace(for: entry.player.id, total: entry.total)
                         HStack(spacing: 12) {
                             Text("\(place)")
                                 .font(.system(.headline, design: .rounded, weight: .heavy))
@@ -80,9 +83,9 @@ struct FinalResultsView: View {
         .background(Color.letterNavy)
     }
 
-    /// Equal top totals are a draw; there is no tie-break.
+    /// Ties go to Sudden Death; after 3 tries with no winner, the tied players share the win.
     private func headline(for winners: [Player]) -> String {
-        guard winners.count == 1, let winner = winners.first else { return "It's a draw!" }
+        guard winners.count == 1, let winner = winners.first else { return "Shared win!" }
         return winner.isLocal ? "You win!" : "\(winner.name) wins!"
     }
 }
@@ -92,9 +95,9 @@ struct FinalResultsView: View {
 }
 
 #if DEBUG
-#Preview("Draw") {
+#Preview("Tie goes to Sudden Death") {
     let viewModel = GameViewModel()
     viewModel.showFinalResultsDemo(draw: true)
-    return FinalResultsView(viewModel: viewModel)
+    return SuddenDeathView(viewModel: viewModel)
 }
 #endif

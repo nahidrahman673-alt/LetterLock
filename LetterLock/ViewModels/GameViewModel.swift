@@ -27,6 +27,15 @@ final class GameViewModel {
     static let pointsOriginal = 10
     static let pointsShared = 5
 
+    /// Sudden Death: seconds to answer, and how many tries before the tied players share the win.
+    static let suddenDeathSeconds = 10
+    static let suddenDeathTries = 3
+    static let suddenDeathIntroSeconds = 3.0
+    /// Sudden Death never uses these: too few fair answers for a 10-second race.
+    static let suddenDeathLetters = letterPool.filter { !["Q", "X", "Z"].contains($0) }
+    /// An answer last typed in this close to 0:00 (and not locked in) is tagged "Cut off".
+    static let cutOffWindow = 2.0
+
     static let reactionEmoji = ["😂", "🤔", "🔥", "💀", "👏"]
 
     static let letterPool = (UnicodeScalar("A").value...UnicodeScalar("Z").value)
@@ -72,6 +81,27 @@ final class GameViewModel {
     private(set) var canMoveOnFromCategory = false
     private(set) var reactions: [Reaction] = []
 
+    // Sudden Death: only the tied players answer; everyone else judges.
+    private(set) var suddenDeathPlayerIds: [UUID] = []
+    private(set) var suddenDeathTry = 0
+    private(set) var suddenDeathPhase = SuddenDeathPhase.intro
+    private(set) var suddenDeathCategory: Category?
+    var suddenDeathAnswer = ""
+    private(set) var suddenDeathAnswers: [RoundAnswer] = []
+    /// Seconds from the question appearing to locking in, per player.
+    private(set) var suddenDeathTimes: [UUID: Double] = [:]
+    private(set) var canMoveOnFromSuddenDeath = false
+    private(set) var suddenDeathWinnerId: UUID?
+    /// True when 3 tries all ended with no winner, so the tied players share first place.
+    private(set) var isSharedWin = false
+    /// "Same answer?" pairs that have already been voted on, so the same pair can't be flagged twice.
+    private(set) var votedMatchPairs: Set<String> = []
+    /// When each of this phone's answers was last typed in, to spot answers cut off at 0:00.
+    @ObservationIgnored private var answerEditedAt: [UUID: Date] = [:]
+    @ObservationIgnored private var suddenDeathStart: Date?
+    @ObservationIgnored private var suddenDeathTexts: [UUID: String] = [:]
+    @ObservationIgnored private var botSuddenDeathPlans: [UUID: (seconds: Double, text: String)] = [:]
+
     @ObservationIgnored private var timerTask: Task<Void, Never>?
     @ObservationIgnored private var shuffleTask: Task<Void, Never>?
     @ObservationIgnored private var adTask: Task<Void, Never>?
@@ -115,11 +145,30 @@ final class GameViewModel {
         roundAnswers.filter { $0.playerId == playerId }.reduce(0) { $0 + $1.points }
     }
 
-    /// Players sorted by total score, including the round being revealed.
+    /// Players sorted by total score, including the round being revealed. A Sudden Death winner
+    /// goes above the players they were tied with.
     var standings: [(player: Player, total: Int)] {
-        players
+        let winnerId = suddenDeathWinnerId
+        return players
             .map { ($0, $0.score + (gameState == .reveal ? roundPoints(for: $0.id) : 0)) }
-            .sorted { $0.1 > $1.1 }
+            .sorted { $0.1 != $1.1 ? $0.1 > $1.1 : ($0.0.id == winnerId && $1.0.id != winnerId) }
+    }
+
+    /// Who won: the Sudden Death winner, or everyone on the top total if they share the win.
+    var champions: [Player] {
+        if let winnerId = suddenDeathWinnerId, let winner = player(winnerId) { return [winner] }
+        guard let top = standings.first?.total else { return [] }
+        return standings.filter { $0.total == top }.map(\.player)
+    }
+
+    /// Place on Final results. Equal totals share a place (1, 1, 3), except that a Sudden Death
+    /// winner takes 1st and the players they beat take 2nd.
+    func finalPlace(for playerId: UUID, total: Int) -> Int {
+        var place = 1 + standings.filter { $0.total > total }.count
+        if let winnerId = suddenDeathWinnerId, winnerId != playerId, player(winnerId)?.score == total {
+            place += 1
+        }
+        return place
     }
 
     /// In player order, so answers reveal Player 1, Player 2, and so on.
@@ -136,7 +185,9 @@ final class GameViewModel {
 
     func player(_ id: UUID) -> Player? { players.first { $0.id == id } }
 
-    func answer(_ id: UUID) -> RoundAnswer? { roundAnswers.first { $0.id == id } }
+    func answer(_ id: UUID) -> RoundAnswer? {
+        roundAnswers.first { $0.id == id } ?? suddenDeathAnswers.first { $0.id == id }
+    }
 
     func categoryName(for id: UUID) -> String {
         categories.first { $0.id == id }?.name ?? ""
@@ -285,6 +336,8 @@ final class GameViewModel {
         cancelTasks()
         timeRemaining = roundSeconds
         answers = [:]
+        answerEditedAt = [:]
+        votedMatchPairs = []
         lockedInPlayerIds = []
         wasTimerCut = false
         roundAnswers = []
@@ -295,6 +348,12 @@ final class GameViewModel {
         })
         gameState = .playing
         startTimer()
+    }
+
+    func setAnswer(_ text: String, for categoryId: UUID) {
+        guard !isInputFrozen else { return }
+        answers[categoryId] = text
+        answerEditedAt[categoryId] = .now
     }
 
     func lockIn() {
@@ -347,6 +406,8 @@ final class GameViewModel {
         timerTask?.cancel()
         timerTask = nil
         sounds.play(.timeUp)
+        let endedAt = Date.now
+        let localWasLockedIn = isLocalLockedIn
         roundAnswers = players.flatMap { player in
             categories.map { category in
                 let text = player.isLocal
@@ -358,6 +419,11 @@ final class GameViewModel {
                     text: text.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 answer.hasWrongLetter = !answer.isBlank && !LetterRule.fits(answer.text, letter: currentLetter)
+                // Still being typed in the last couple of seconds, and never locked in: probably cut off.
+                if player.isLocal, !localWasLockedIn, !answer.isBlank,
+                   let editedAt = answerEditedAt[category.id], endedAt.timeIntervalSince(editedAt) < Self.cutOffWindow {
+                    answer.wasCutOff = true
+                }
                 return answer
             }
         }
@@ -393,6 +459,7 @@ final class GameViewModel {
                 self.revealedAnswerCount += 1
                 self.sounds.play(.pop)
                 self.maybeBotReaction()
+                self.maybeBotVetoCutOff(self.answers(for: category.id)[self.revealedAnswerCount - 1])
             }
             try? await Task.sleep(for: .seconds(0.5))
             guard let self, !Task.isCancelled else { return }
@@ -467,7 +534,7 @@ final class GameViewModel {
     private func scoreRound() {
         var matches: [String: Int] = [:]
         for answer in roundAnswers where answer.canScore {
-            matches["\(answer.categoryId)|\(answer.matchKey)", default: 0] += 1
+            matches["\(answer.categoryId)|\(answer.scoringKey)", default: 0] += 1
         }
         for index in roundAnswers.indices {
             let answer = roundAnswers[index]
@@ -475,7 +542,7 @@ final class GameViewModel {
                 roundAnswers[index].points = 0
                 continue
             }
-            switch matches["\(answer.categoryId)|\(answer.matchKey)", default: 1] {
+            switch matches["\(answer.categoryId)|\(answer.scoringKey)", default: 1] {
             case 1: roundAnswers[index].points = Self.pointsOriginal
             case 2: roundAnswers[index].points = Self.pointsShared
             default: roundAnswers[index].points = 0
@@ -484,26 +551,102 @@ final class GameViewModel {
     }
 
     func canVeto(_ answer: RoundAnswer) -> Bool {
-        gameState == .reveal && activeVote == nil && answer.canScore && !answer.wasVoted
-            && answer.playerId != localPlayer?.id && isRevealed(answer)
+        guard activeVote == nil, answer.canScore, !answer.wasVoted, answer.playerId != localPlayer?.id else { return false }
+        switch gameState {
+        case .reveal: return isRevealed(answer)
+        // In Sudden Death only the players who are waiting (the judges) can Veto.
+        case .suddenDeath: return suddenDeathPhase == .result && !isLocalInSuddenDeath
+        default: return false
+        }
     }
 
-    /// Starts a vote among everyone except the answer's author.
+    /// Starts a vote among everyone except the answer's author. In Sudden Death only the judges vote.
     func veto(_ answerId: UUID) {
         guard let answer = answer(answerId), canVeto(answer) else { return }
-        let voters = players.filter { $0.id != answer.playerId }.map(\.id)
-        activeVote = VetoVote(answerId: answerId, voterIds: voters)
-        sounds.play(.veto)
+        startVeto(of: answer, acceptChance: 0.55)
+    }
 
-        // Simulated players vote over the next couple of seconds.
+    private func startVeto(of answer: RoundAnswer, acceptChance: Double) {
+        let voters = players
+            .filter { $0.id != answer.playerId }
+            .filter { gameState != .suddenDeath || !suddenDeathPlayerIds.contains($0.id) }
+            .map(\.id)
+        activeVote = VetoVote(answerId: answer.id, voterIds: voters)
+        sounds.play(.veto)
+        runBotBallots(voters, acceptChance: acceptChance)
+    }
+
+    /// Simulated players vote over the next couple of seconds.
+    private func runBotBallots(_ voters: [UUID], acceptChance: Double) {
         let bots = players.filter { !$0.isLocal && voters.contains($0.id) }.map(\.id)
         voteTask = Task { [weak self] in
             try? await Task.sleep(for: .seconds(0.8))
             for id in bots.shuffled() {
                 try? await Task.sleep(for: .milliseconds(Int.random(in: 400...1100)))
                 guard let self, !Task.isCancelled else { return }
-                self.recordBallot(from: id, accept: Double.random(in: 0..<1) < 0.55)
+                self.recordBallot(from: id, accept: Double.random(in: 0..<1) < acceptChance)
             }
+        }
+    }
+
+    /// Prototype only: a simulated player often vetoes an answer that was cut off at 0:00,
+    /// the way friends would, so the "Cut off" tag can be seen doing its job on one phone.
+    private func maybeBotVetoCutOff(_ answer: RoundAnswer) {
+        guard answer.wasCutOff, answer.canScore, !answer.wasVoted, activeVote == nil,
+              Double.random(in: 0..<1) < 0.7 else { return }
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(0.6))
+            guard let self, self.gameState == .reveal, self.activeVote == nil,
+                  let current = self.answer(answer.id), !current.wasVoted else { return }
+            self.startVeto(of: current, acceptChance: 0.35)
+        }
+    }
+
+    // MARK: - Same answer?
+
+    static func matchPairKey(_ a: UUID, _ b: UUID) -> String {
+        [a.uuidString, b.uuidString].sorted().joined(separator: "|")
+    }
+
+    /// Two answers in the same category that could be voted the same: both still scoring,
+    /// not already a match, and not voted on before. Only once the category's points are showing.
+    func canFlagMatch(_ a: RoundAnswer, _ b: RoundAnswer) -> Bool {
+        gameState == .reveal && isCategoryScored && activeVote == nil
+            && a.categoryId == revealCategory?.id && a.categoryId == b.categoryId && a.id != b.id
+            && a.canScore && b.canScore && a.scoringKey != b.scoringKey
+            && !votedMatchPairs.contains(Self.matchPairKey(a.id, b.id))
+    }
+
+    /// Pairs the app thinks look or sound alike, for the "Same answer?" suggestion.
+    func suggestedMatches(in categoryId: UUID) -> [(RoundAnswer, RoundAnswer)] {
+        let list = answers(for: categoryId).filter(\.canScore)
+        var pairs: [(RoundAnswer, RoundAnswer)] = []
+        for i in list.indices {
+            for j in list.indices where j > i && canFlagMatch(list[i], list[j]) {
+                if AnswerSimilarity.looksAlike(list[i].text, list[j].text) { pairs.append((list[i], list[j])) }
+            }
+        }
+        return pairs
+    }
+
+    /// Anyone can ask. Everyone except the two authors votes; more Same than Different makes them a match.
+    func flagMatch(_ firstId: UUID, _ secondId: UUID) {
+        guard let first = answer(firstId), let second = answer(secondId), canFlagMatch(first, second) else { return }
+        var voters = players.filter { $0.id != first.playerId && $0.id != second.playerId }.map(\.id)
+        if voters.isEmpty { voters = players.map(\.id) }   // Two-player game: both authors vote.
+        activeVote = VetoVote(answerId: firstId, voterIds: voters, matchAnswerId: secondId)
+        sounds.play(.veto)
+        runBotBallots(voters, acceptChance: AnswerSimilarity.looksAlike(first.text, second.text) ? 0.75 : 0.35)
+    }
+
+    /// Every answer that already matches either one ends up in the same group.
+    private func mergeAnswers(_ firstId: UUID, _ secondId: UUID) {
+        guard let first = answer(firstId), let second = answer(secondId) else { return }
+        let target = first.scoringKey
+        let keys: Set<String> = [first.scoringKey, second.scoringKey]
+        for index in roundAnswers.indices
+        where roundAnswers[index].categoryId == first.categoryId && keys.contains(roundAnswers[index].scoringKey) {
+            roundAnswers[index].mergedKey = target
         }
     }
 
@@ -521,10 +664,19 @@ final class GameViewModel {
         guard var vote = activeVote, vote.voterIds.contains(playerId), vote.ballots[playerId] == nil else { return }
         vote.ballots[playerId] = accept
         activeVote = vote
-        guard vote.isComplete, let index = roundAnswers.firstIndex(where: { $0.id == vote.answerId }) else { return }
-        roundAnswers[index].verdict = vote.verdict
-        roundAnswers[index].wasVoted = true
-        scoreRound()
+        guard vote.isComplete else { return }
+        if let otherId = vote.matchAnswerId {
+            votedMatchPairs.insert(Self.matchPairKey(vote.answerId, otherId))
+            if vote.isSameAnswer { mergeAnswers(vote.answerId, otherId) }
+            scoreRound()
+        } else if let index = roundAnswers.firstIndex(where: { $0.id == vote.answerId }) {
+            roundAnswers[index].verdict = vote.verdict
+            roundAnswers[index].wasVoted = true
+            scoreRound()
+        } else if let index = suddenDeathAnswers.firstIndex(where: { $0.id == vote.answerId }) {
+            suddenDeathAnswers[index].verdict = vote.verdict
+            suddenDeathAnswers[index].wasVoted = true
+        }
     }
 
     func dismissVote() {
@@ -544,12 +696,201 @@ final class GameViewModel {
         roundAnswers = []
         reactions = []
         if isLastRound {
-            gameState = .finalResults
-            sounds.play(.sparkle)
+            let leaders = tiedLeaders()
+            if leaders.count > 1 {
+                startSuddenDeath(leaders)
+            } else {
+                gameState = .finalResults
+                sounds.play(.sparkle)
+            }
         } else {
             currentRound += 1
             beginLetterChoice()
         }
+    }
+
+    // MARK: - Sudden Death
+
+    var isLocalInSuddenDeath: Bool {
+        guard let localPlayer else { return false }
+        return suddenDeathPlayerIds.contains(localPlayer.id)
+    }
+
+    var suddenDeathPlayers: [Player] { suddenDeathPlayerIds.compactMap(player) }
+
+    var isLocalSuddenDeathLockedIn: Bool {
+        guard let localPlayer else { return false }
+        return suddenDeathTexts[localPlayer.id] != nil
+    }
+
+    /// Seconds to lock in. Anyone who never locked in is timed at the full 10 seconds.
+    func suddenDeathSeconds(for playerId: UUID) -> Double {
+        suddenDeathTimes[playerId] ?? Double(Self.suddenDeathSeconds)
+    }
+
+    /// Answers fastest first.
+    var suddenDeathResults: [RoundAnswer] {
+        suddenDeathAnswers.sorted { suddenDeathSeconds(for: $0.playerId) < suddenDeathSeconds(for: $1.playerId) }
+    }
+
+    /// The fastest answer that has the right letter, wasn't vetoed and nobody else gave. Nil if there isn't one.
+    var suddenDeathLeaderId: UUID? {
+        let valid = suddenDeathAnswers.filter(\.canScore)
+        let counts = Dictionary(grouping: valid, by: \.matchKey).mapValues(\.count)
+        return valid
+            .filter { counts[$0.matchKey] == 1 }
+            .min { suddenDeathSeconds(for: $0.playerId) < suddenDeathSeconds(for: $1.playerId) }?
+            .playerId
+    }
+
+    func suddenDeathOutcome(for answer: RoundAnswer) -> SuddenDeathOutcome {
+        if answer.isBlank { return .blank }
+        if answer.hasWrongLetter { return .wrongLetter }
+        if answer.verdict == .rejected { return .rejected }
+        let sameCount = suddenDeathAnswers.filter { $0.canScore && $0.matchKey == answer.matchKey }.count
+        if sameCount > 1 { return .sameAnswer }
+        return answer.playerId == suddenDeathLeaderId ? .winner : .slower
+    }
+
+    var isLastSuddenDeathTry: Bool { suddenDeathTry >= Self.suddenDeathTries }
+
+    /// Hundredths of a second, like a race: "3.42s".
+    static func formatSeconds(_ seconds: Double) -> String {
+        String(format: "%.2fs", seconds)
+    }
+
+    private func tiedLeaders() -> [UUID] {
+        guard let top = players.map(\.score).max() else { return [] }
+        return players.filter { $0.score == top }.map(\.id)
+    }
+
+    private func startSuddenDeath(_ playerIds: [UUID]) {
+        suddenDeathPlayerIds = playerIds
+        suddenDeathTry = 0
+        suddenDeathWinnerId = nil
+        isSharedWin = false
+        gameState = .suddenDeath
+        beginSuddenDeathTry()
+    }
+
+    /// A new category and letter each try, picked by the app (no shuffle).
+    private func beginSuddenDeathTry() {
+        cancelTasks()
+        suddenDeathTry += 1
+        suddenDeathPhase = .intro
+        suddenDeathCategory = categories.randomElement()
+        var letter = Self.suddenDeathLetters.randomElement() ?? "A"
+        while letter == currentLetter { letter = Self.suddenDeathLetters.randomElement() ?? "A" }
+        currentLetter = letter
+        suddenDeathAnswer = ""
+        suddenDeathAnswers = []
+        suddenDeathTimes = [:]
+        suddenDeathTexts = [:]
+        lockedInPlayerIds = []
+        activeVote = nil
+        canMoveOnFromSuddenDeath = false
+        timeRemaining = Self.suddenDeathSeconds
+        sounds.play(.veto)
+
+        timerTask = Task { [weak self] in
+            try? await Task.sleep(for: .seconds(Self.suddenDeathIntroSeconds))
+            guard let self, !Task.isCancelled else { return }
+            self.startSuddenDeathAnswering()
+        }
+    }
+
+    private func startSuddenDeathAnswering() {
+        guard let category = suddenDeathCategory else { return }
+        suddenDeathPhase = .answering
+        let start = Date.now
+        suddenDeathStart = start
+        // Simulated tied players answer somewhere between 2 and 9.5 seconds in.
+        botSuddenDeathPlans = Dictionary(uniqueKeysWithValues: suddenDeathPlayers.filter { !$0.isLocal }.map {
+            ($0.id, (seconds: Double.random(in: 2...9.5), text: MockAnswerBank.answer(for: category.name, letter: currentLetter)))
+        })
+        sounds.play(.land)
+
+        timerTask = Task { [weak self] in
+            while true {
+                do {
+                    try await Task.sleep(for: .milliseconds(50))
+                } catch {
+                    return
+                }
+                guard let self else { return }
+                let elapsed = Date.now.timeIntervalSince(start)
+                for (id, plan) in self.botSuddenDeathPlans where elapsed >= plan.seconds {
+                    self.recordSuddenDeathLockIn(id, text: plan.text, seconds: plan.seconds)
+                }
+                let secondsLeft = max(0, Self.suddenDeathSeconds - Int(elapsed))
+                if secondsLeft != self.timeRemaining { self.setTimeRemaining(secondsLeft) }
+                let everyoneIn = self.suddenDeathPlayerIds.allSatisfy { self.suddenDeathTexts[$0] != nil }
+                if everyoneIn || elapsed >= Double(Self.suddenDeathSeconds) {
+                    self.endSuddenDeathTry()
+                    return
+                }
+            }
+        }
+    }
+
+    /// No "are you sure?" here: it's a race.
+    func lockInSuddenDeath() {
+        guard gameState == .suddenDeath, suddenDeathPhase == .answering, let localPlayer, let suddenDeathStart,
+              isLocalInSuddenDeath, !isLocalSuddenDeathLockedIn else { return }
+        sounds.play(.lockIn)
+        recordSuddenDeathLockIn(localPlayer.id, text: suddenDeathAnswer, seconds: Date.now.timeIntervalSince(suddenDeathStart))
+    }
+
+    private func recordSuddenDeathLockIn(_ playerId: UUID, text: String, seconds: Double) {
+        guard suddenDeathTexts[playerId] == nil else { return }
+        suddenDeathTexts[playerId] = text
+        suddenDeathTimes[playerId] = min(seconds, Double(Self.suddenDeathSeconds))
+        lockedInPlayerIds.insert(playerId)
+    }
+
+    private func endSuddenDeathTry() {
+        guard gameState == .suddenDeath, suddenDeathPhase == .answering, let category = suddenDeathCategory else { return }
+        timerTask?.cancel()
+        timerTask = nil
+        sounds.setMusicDucked(false)
+        sounds.play(.timeUp)
+        // Whatever the local player had typed at 0:00 counts, timed at the full 10 seconds.
+        if let localPlayer, isLocalInSuddenDeath, suddenDeathTexts[localPlayer.id] == nil {
+            suddenDeathTexts[localPlayer.id] = suddenDeathAnswer
+        }
+        suddenDeathAnswers = suddenDeathPlayerIds.map { id in
+            var answer = RoundAnswer(
+                playerId: id,
+                categoryId: category.id,
+                text: suddenDeathTexts[id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            answer.hasWrongLetter = !answer.isBlank && !LetterRule.fits(answer.text, letter: currentLetter)
+            return answer
+        }
+        suddenDeathPhase = .result
+        let attempt = suddenDeathTry
+        Task { [weak self] in
+            try? await Task.sleep(for: .seconds(1))
+            guard let self, self.suddenDeathTry == attempt, self.suddenDeathPhase == .result else { return }
+            self.canMoveOnFromSuddenDeath = true
+        }
+    }
+
+    /// Host only. Crowns the winner, starts another try, or (after the last try) shares the win.
+    func finishSuddenDeathTry(by playerId: UUID) {
+        guard isHost(playerId), gameState == .suddenDeath, suddenDeathPhase == .result,
+              canMoveOnFromSuddenDeath, activeVote == nil else { return }
+        if let winner = suddenDeathLeaderId {
+            suddenDeathWinnerId = winner
+        } else if !isLastSuddenDeathTry {
+            beginSuddenDeathTry()
+            return
+        } else {
+            isSharedWin = true
+        }
+        cancelTasks()
+        gameState = .finalResults
+        sounds.play(.sparkle)
     }
 
     /// Host only. Back to the lobby with the same players.
@@ -609,6 +950,17 @@ final class GameViewModel {
         isCategoryScored = false
         canMoveOnFromCategory = false
         reactions = []
+        suddenDeathPlayerIds = []
+        suddenDeathTry = 0
+        suddenDeathPhase = .intro
+        suddenDeathCategory = nil
+        suddenDeathAnswer = ""
+        suddenDeathAnswers = []
+        suddenDeathTimes = [:]
+        suddenDeathTexts = [:]
+        canMoveOnFromSuddenDeath = false
+        suddenDeathWinnerId = nil
+        isSharedWin = false
         for index in players.indices { players[index].score = 0 }
     }
 
@@ -630,14 +982,34 @@ final class GameViewModel {
 
 #if DEBUG
 extension GameViewModel {
-    /// Debug only: jumps straight to Final results with set scores. Launch with `-DrawDemo` to see a draw.
+    /// Debug only: jumps to the end of a game with set scores. Launch with `-DrawDemo` to see a tie
+    /// go to Sudden Death (you against Sam).
     func showFinalResultsDemo(draw: Bool) {
         startNewGame()
         let totals = draw ? [140, 140, 95, 120] : [140, 125, 95, 120]
         for (index, total) in totals.enumerated() where players.indices.contains(index) {
             players[index].score = total
         }
-        gameState = .finalResults
+        let leaders = tiedLeaders()
+        if leaders.count > 1 {
+            startSuddenDeath(leaders)
+        } else {
+            gameState = .finalResults
+        }
+    }
+
+    /// Debug only: from the lobby, skips the rounds and ties you with the next player on 140,
+    /// so Sudden Death starts straight away. Everyone else is a judge.
+    func startSuddenDeathDemo() {
+        guard gameState == .lobby, canStartGame, let localPlayer,
+              let rival = players.first(where: { !$0.isLocal }) else { return }
+        resetMatch()
+        currentRound = totalRounds
+        for index in players.indices {
+            let id = players[index].id
+            players[index].score = (id == localPlayer.id || id == rival.id) ? 140 : Int.random(in: 6...12) * 10
+        }
+        startSuddenDeath([localPlayer.id, rival.id])
     }
 
     /// Debug only: shuffles over and over so the animation can be watched on repeat.

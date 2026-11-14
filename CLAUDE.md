@@ -41,13 +41,18 @@ compliance (privacy manifest and labels, ad network tracking prompt, honest age 
 - Letter check (`LetterRule` in GameModels.swift): the first word must start with the letter; a leading
   "The/A/An" is skipped; accents ignored; answers starting with a number are left to Veto. A coral note
   warns while typing; the reveal shows "Wrong letter".
-  Matching ignores capitals and spaces; spelling is never checked.
+  Matching ignores capitals and spaces; spelling is never checked, but players can vote two answers
+  "Same answer?" (the app suggests look/sound-alikes via `AnswerSimilarity`; voted pairs share `mergedKey`).
+- Answers still being typed at 0:00 (not locked in) are tagged "Cut off at 0:00" at the reveal.
 - Reveal: one category at a time, one player at a time; points show once all are revealed.
   Veto starts a vote of everyone but the author; more rejects than accepts scores it 0, a tie keeps it.
-- Highest total wins. Equal top totals are a draw with shared first place, no tie-break.
+- Highest total wins. Equal top totals go to Sudden Death (`SuddenDeathView.swift`): only the tied players
+  answer one random category with a new letter (never Q, X or Z) in 10 seconds; the fastest right, unique, un-vetoed answer
+  wins (times to the hundredth); the other players judge with Veto; after 3 tries with no winner it's a
+  shared win.
 - Drop-outs keep their seat and score; missed answers are blank. If the host leaves, the next
   player becomes host. Whatever is typed at 0:00 counts.
-- Only the host starts the game and rounds, skips or moves the reveal on, and starts Play Again.
+- Only the host starts the game and rounds, skips or moves the reveal and Sudden Death on, and starts Play Again.
 
 ## Design
 
@@ -70,5 +75,6 @@ lilac #B79CFF. Rounded bold type for titles and letter tiles. Primary buttons ar
 - Final audio choices: music is Midnight Pulse, the time's up sound is Dark Gong, and the shuffle is Rain.
   The other tracks, sounds and the Pile animation were removed. Players can only turn music on or off.
 - Swift 6, iOS deployment target 27.2. Build the `LetterLock` scheme from `LetterLock.xcodeproj`.
-- Debug launch arguments: `-ShuffleDemo`, `-DrawDemo`.
+- Debug launch arguments: `-ShuffleDemo`, `-DrawDemo` (jumps to a tie, so Sudden Death starts: you vs Sam).
+  Debug builds also show "Prototype: try Sudden Death" in the host's lobby.
 - `Demo/` holds screen recordings and screenshots; it is deliberately not committed.
