@@ -102,7 +102,8 @@ struct GameTextField: UIViewRepresentable {
 /// (for example a category page that the pager hasn't built yet).
 final class FocusingTextField: UITextField {
     var wantsFocus = false {
-        didSet { applyFocus() }
+        // Only when it actually changes, not on every keystroke.
+        didSet { if wantsFocus != oldValue { applyFocus() } }
     }
 
     override func didMoveToWindow() {

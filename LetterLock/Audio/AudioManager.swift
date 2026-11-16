@@ -70,9 +70,9 @@ final class AudioManager: SoundPlaying {
 
         music = Self.makeMusicPlayer()
         for effect in SoundEffect.allCases {
-            guard let url = Self.url(for: effect.rawValue) else { continue }
+            guard let data = Self.data(for: effect.rawValue) else { continue }
             effects[effect] = (0..<Self.voicesPerEffect).compactMap { _ in
-                let player = try? AVAudioPlayer(contentsOf: url)
+                let player = try? AVAudioPlayer(data: data, fileTypeHint: AVFileType.wav.rawValue)
                 player?.volume = effect.volume
                 player?.prepareToPlay()
                 return player
@@ -118,16 +118,20 @@ final class AudioManager: SoundPlaying {
         music?.setVolume(ducked ? Self.duckedMusicVolume : Self.musicVolume, fadeDuration: 0.4)
     }
 
+    /// The whole loop is held in memory (about 1.7 MB) instead of being read from storage while it plays,
+    /// so a busy moment, like the keyboard opening for the first time, can't make the music stutter.
     private static func makeMusicPlayer() -> AVAudioPlayer? {
-        guard let url = url(for: musicFile), let player = try? AVAudioPlayer(contentsOf: url) else { return nil }
+        guard let data = data(for: musicFile),
+              let player = try? AVAudioPlayer(data: data, fileTypeHint: AVFileType.wav.rawValue) else { return nil }
         player.numberOfLoops = -1
         player.volume = musicVolume
         player.prepareToPlay()
         return player
     }
 
-    private static func url(for name: String) -> URL? {
-        Bundle.main.url(forResource: name, withExtension: "wav")
+    private static func data(for name: String) -> Data? {
+        let url = Bundle.main.url(forResource: name, withExtension: "wav")
             ?? Bundle.main.url(forResource: name, withExtension: "wav", subdirectory: "Audio")
+        return url.flatMap { try? Data(contentsOf: $0) }
     }
 }

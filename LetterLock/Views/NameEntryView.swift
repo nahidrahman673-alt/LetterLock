@@ -14,7 +14,8 @@ struct NameEntryView: View {
 
     @Environment(\.dismiss) private var dismiss
     @State private var name = ""
-    @State private var isFocused = true
+    /// Off at first: the keyboard opens once the page has finished sliding in, so the two don't compete.
+    @State private var isFocused = false
 
     private var canSave: Bool { !name.trimmingCharacters(in: .whitespaces).isEmpty }
 
@@ -75,6 +76,10 @@ struct NameEntryView: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
         .onAppear { name = viewModel.playerName }
+        .task {
+            try? await Task.sleep(for: .milliseconds(450))
+            isFocused = true
+        }
     }
 
     private func save() {
