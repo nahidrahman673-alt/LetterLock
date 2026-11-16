@@ -39,12 +39,12 @@ struct HomeView: View {
 
             LogoView()
 
-            // "Lock it in." in yellow to match the LOCK tiles in the title.
-            Text("One letter. Ten categories.\n\(Text("Lock it in.").foregroundStyle(Color.letterYellow))")
+            // "No witnesses." in yellow to match the ASSASSIN tiles in the title.
+            Text("One letter. Ten targets.\n\(Text("No witnesses.").foregroundStyle(Color.letterYellow))")
                 .font(.system(.title2, design: .rounded, weight: .bold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.letterCream)
-                .padding(.top, 18)
+                .padding(.top, 12)
 
             ViewThatFits {
                 HStack(spacing: 8) { scoringPills }
@@ -104,74 +104,105 @@ struct HomeView: View {
 
     @ViewBuilder
     private var scoringPills: some View {
-        ScoringPill(text: "+10 original", fill: .letterYellow)
+        ScoringPill(text: "+10 unseen", fill: .letterYellow)
         ScoringPill(text: "+5 shared", fill: .letterMint)
         ScoringPill(text: "0 if 3 match", fill: .letterCoral)
     }
 }
 
-/// The LetterLock tile logo. Full size on Home; the title bar uses a small copy so the
-/// identity is the same everywhere.
+/// The Alphabet Assassin logo on Home: the ninja A above ALPHABET (cream tiles) and ASSASSIN
+/// (yellow tiles). The first time Home appears after the app opens, the pieces roll in one
+/// after another with the rain shuffle's clack, and its landing thud once the last tile settles.
 struct LogoView: View {
-    /// 46 on Home. Everything else scales from this.
-    var tileSize: CGFloat = 46
+    @Environment(AudioManager.self) private var audio
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
-    private let topRow: [(letter: String, edge: Color, tilt: Double)] = [
-        ("L", .letterYellow, -6),
-        ("E", .letterMint, 3),
-        ("T", .letterCoral, -2),
-        ("T", .letterYellow, 5),
-        ("E", .letterLilac, -4),
-        ("R", .letterMint, 2),
-    ]
-    private let bottomRow: [(letter: String, tilt: Double)] = [
-        ("L", 4),
-        ("O", -3),
-        ("C", 2),
-        ("K", -5),
-    ]
+    /// The intro plays once per app launch, not every time a player comes back to Home.
+    private static var hasPlayedIntro = false
 
-    private var scale: CGFloat { tileSize / 46 }
+    @State private var isIn = LogoView.hasPlayedIntro
+
+    private static let tileSize: CGFloat = 36
+    /// When the ninja A starts rolling in, then each tile follows this far apart.
+    private static let firstTileDelay = 0.3
+    private static let tileGap = 0.07
 
     var body: some View {
-        VStack(spacing: 14 * scale) {
-            HStack(spacing: 6 * scale) {
-                ForEach(topRow.indices, id: \.self) { index in
-                    LetterTile(
-                        letter: topRow[index].letter,
-                        size: tileSize,
-                        edge: topRow[index].edge,
-                        tilt: topRow[index].tilt
-                    )
-                }
-            }
+        VStack(spacing: 20) {
+            NinjaMark(size: 150)
+                .rollIn(isIn, delay: 0, distance: 140)
 
-            HStack(spacing: 6 * scale) {
-                ForEach(bottomRow.indices, id: \.self) { index in
-                    LetterTile(
-                        letter: bottomRow[index].letter,
-                        size: tileSize,
-                        fill: .letterYellow,
-                        edge: .letterCream,
-                        tilt: bottomRow[index].tilt
-                    )
-                }
-
-                Image(systemName: "lock.fill")
-                    .font(.system(size: 22 * scale, weight: .bold))
-                    .foregroundStyle(Color.letterYellow)
-                    .frame(width: tileSize, height: tileSize * 1.16)
-                    .background(Color.letterSurface, in: .rect(cornerRadius: 10 * scale))
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 10 * scale)
-                            .strokeBorder(Color.letterYellow, lineWidth: max(1, 2 * scale))
-                    }
-                    .rotationEffect(.degrees(6))
+            AssassinTiles(tileSize: Self.tileSize) { index, tile in
+                tile.rollIn(isIn, delay: Self.firstTileDelay + Double(index) * Self.tileGap)
             }
         }
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("LetterLock")
+        .accessibilityLabel("Alphabet Assassin")
         .accessibilityAddTraits(.isHeader)
+        .task { await playIntro() }
+    }
+
+    private func playIntro() async {
+        guard !Self.hasPlayedIntro else { return }
+        Self.hasPlayedIntro = true
+        // Reduce Motion: no rolling, the logo is simply there.
+        guard !reduceMotion else {
+            isIn = true
+            return
+        }
+
+        isIn = true
+        try? await Task.sleep(for: .seconds(Self.firstTileDelay))
+        for _ in 0..<AssassinTiles<LetterTile>.count {
+            audio.play(.clack)
+            try? await Task.sleep(for: .seconds(Self.tileGap))
+        }
+        try? await Task.sleep(for: .seconds(0.25))
+        audio.play(.land)
+    }
+}
+
+/// ALPHABET over ASSASSIN in level letter tiles: 8 over 8, so the rows line up exactly.
+/// `decorate` lets Home add its roll-in to each tile (numbered 0 to 15, left to right, top row first).
+struct AssassinTiles<Tile: View>: View {
+    static var count: Int { 16 }
+
+    let tileSize: CGFloat
+    var decorate: (Int, LetterTile) -> Tile
+
+    private static var topEdges: [Color] { [.letterYellow, .letterMint, .letterCoral, .letterLilac] }
+
+    var body: some View {
+        let scale = tileSize / 36
+        VStack(spacing: 10 * scale) {
+            HStack(spacing: 4 * scale) {
+                ForEach(Array("ALPHABET".enumerated()), id: \.offset) { index, letter in
+                    decorate(index, LetterTile(letter: String(letter), size: tileSize, edge: Self.topEdges[index % 4]))
+                }
+            }
+            HStack(spacing: 4 * scale) {
+                ForEach(Array("ASSASSIN".enumerated()), id: \.offset) { index, letter in
+                    decorate(8 + index, LetterTile(letter: String(letter), size: tileSize, fill: .letterYellow, edge: .letterCoral))
+                }
+            }
+        }
+    }
+}
+
+extension AssassinTiles where Tile == LetterTile {
+    init(tileSize: CGFloat) {
+        self.init(tileSize: tileSize) { _, tile in tile }
+    }
+}
+
+private extension View {
+    /// Canva's "Roll": slides in from the left while turning a full circle, settling with a small bounce.
+    func rollIn(_ isIn: Bool, delay: Double, distance: CGFloat = 70) -> some View {
+        self
+            .rotationEffect(.degrees(isIn ? 0 : -360))
+            .offset(x: isIn ? 0 : -distance)
+            .opacity(isIn ? 1 : 0)
+            .animation(.spring(response: 0.55, dampingFraction: 0.72).delay(delay), value: isIn)
     }
 }
 
@@ -197,11 +228,11 @@ private struct HowToPlaySheet: View {
     private let steps = [
         "2 to 8 players. 5 rounds (or 3, or 1 for a quick game) of 90 seconds (or 60). The host runs the game.",
         "Players take turns shuffling the tiles for the round's letter, A to Z. Don't like it? Watch an ad to reshuffle.",
-        "Swipe through 10 categories and fill each one with a word starting with that letter.",
+        "Swipe through 10 targets (categories like Country or Food) and fill each one with a word starting with that letter.",
         "Done? Hit Lock In. Once 3 players lock in, the clock drops to 5 seconds.",
-        "Answers are revealed one category at a time, one player at a time. Blank answers score 0 and spelling is up to you.",
+        "Answers are revealed one target at a time, one player at a time. An answer nobody else had goes UNDETECTED for 10 points. Blank answers score 0 and spelling is up to you.",
         "Doubt an answer? Veto it and everyone votes. Tap the emoji to react as answers land.",
-        "Tied for first at the end? Sudden Death: one category, 10 seconds, fastest right answer wins. Same answer knocks you both out. After 3 tries with no winner, you share the win.",
+        "Tied for first at the end? Sudden Death: one target, 10 seconds, fastest right answer wins. Same answer knocks you both out. After 3 tries with no winner, you share the win.",
     ]
 
     var body: some View {
@@ -211,7 +242,7 @@ private struct HowToPlaySheet: View {
                     Text("How to play")
                         .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                         .foregroundStyle(Color.letterCream)
-                    Text("One letter. Ten categories.")
+                    Text("One letter. Ten targets. No witnesses.")
                         .font(.system(.headline, design: .rounded, weight: .bold))
                         .foregroundStyle(Color.letterYellow)
                 }
@@ -230,7 +261,7 @@ private struct HowToPlaySheet: View {
                 }
 
                 VStack(alignment: .leading, spacing: 10) {
-                    ScoringRule(points: "+10", detail: "Original: nobody else had it", fill: .letterYellow)
+                    ScoringRule(points: "+10", detail: "Unseen: nobody else had it", fill: .letterYellow)
                     ScoringRule(points: "+5", detail: "Shared: exactly 2 players matched", fill: .letterMint)
                     ScoringRule(points: "0", detail: "3 or more players matched", fill: .letterCoral)
                 }
@@ -268,6 +299,7 @@ private struct ScoringRule: View {
 
 #Preview {
     HomeView(viewModel: .preview(.home))
+        .environment(AudioManager())
 }
 
 #Preview("How to play") {

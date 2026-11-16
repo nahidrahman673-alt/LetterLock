@@ -77,7 +77,7 @@ struct ContentView: View {
     }
 }
 
-/// The LetterLock wordmark centred at the top, with an optional Leave on the left and the mute
+/// The Alphabet Assassin wordmark centred at the top, with an optional Leave on the left and the mute
 /// button on the right. Shared by every screen after Home so the identity stays consistent.
 struct TitleBar: View {
     let audio: AudioManager
@@ -115,10 +115,17 @@ struct TitleBar: View {
     }
 }
 
-/// The Home tile logo at title-bar size, so every screen carries the same identity.
+/// The Home logo at title-bar size, so every screen carries the same identity: a small ninja A
+/// beside ALPHABET / ASSASSIN in mini tiles.
 struct Wordmark: View {
     var body: some View {
-        LogoView(tileSize: 20)
+        HStack(spacing: 6) {
+            NinjaMark(size: 44)
+            AssassinTiles(tileSize: 14)
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Alphabet Assassin")
+        .accessibilityAddTraits(.isHeader)
     }
 }
 

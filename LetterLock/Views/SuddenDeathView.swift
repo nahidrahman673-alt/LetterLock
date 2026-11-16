@@ -71,7 +71,7 @@ struct SuddenDeathView: View {
                 .font(.system(.title2, design: .rounded, weight: .heavy))
                 .foregroundStyle(Color.letterYellow)
                 .multilineTextAlignment(.center)
-            Text("One category. \(GameViewModel.suddenDeathSeconds) seconds.\nFastest right answer wins.\nSame answer? You're both out.")
+            Text("One target. \(GameViewModel.suddenDeathSeconds) seconds.\nFastest right answer wins.\nSame answer? You're both out.")
                 .font(.body.weight(.semibold))
                 .multilineTextAlignment(.center)
                 .foregroundStyle(Color.letterMuted)

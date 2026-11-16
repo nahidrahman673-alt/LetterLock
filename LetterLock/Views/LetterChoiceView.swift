@@ -41,6 +41,12 @@ struct LetterChoiceView: View {
                 .foregroundStyle(Color.letterMuted)
                 .frame(minHeight: 20)
 
+            // Fades in once the letter has landed.
+            if viewModel.hasChosenLetter && !viewModel.isShuffling {
+                QuoteView(scale: 0.85)
+                    .transition(.opacity)
+            }
+
             if viewModel.isLocalChooser {
                 if viewModel.hasChosenLetter {
                     Button {
@@ -74,6 +80,7 @@ struct LetterChoiceView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
+        .animation(.easeOut(duration: 0.4), value: viewModel.hasChosenLetter && !viewModel.isShuffling)
         .fullScreenCover(isPresented: $viewModel.isShowingAd) {
             MockAdView(viewModel: viewModel)
                 .interactiveDismissDisabled()

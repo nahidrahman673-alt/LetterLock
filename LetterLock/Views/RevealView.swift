@@ -116,7 +116,7 @@ struct RevealView: View {
     private var subtitle: String {
         let round = "ROUND \(viewModel.currentRound)/\(viewModel.totalRounds)"
         guard !viewModel.isShowingRoundScores else { return round }
-        return "\(round) · CATEGORY \(viewModel.revealCategoryIndex + 1)/\(viewModel.categories.count)"
+        return "\(round) · TARGET \(viewModel.revealCategoryIndex + 1)/\(viewModel.categories.count)"
     }
 
     // MARK: - Category page
@@ -185,6 +185,11 @@ struct RevealView: View {
                     Label("Cut off at 0:00", systemImage: "scissors")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(Color.letterLilac)
+                }
+                // The only answer of its kind: it slipped past everyone.
+                if viewModel.isCategoryScored, answer.points == GameViewModel.pointsOriginal {
+                    UndetectedFlash()
+                        .transition(.scale(scale: 0.4).combined(with: .opacity))
                 }
                 if isRevealed, answer.mergedKey != nil, viewModel.isCategoryScored {
                     Label("Voted the same answer", systemImage: "equal.circle.fill")
@@ -306,7 +311,7 @@ struct RevealView: View {
         } else {
             HostActionButton(
                 viewModel: viewModel,
-                title: viewModel.isLastRevealCategory ? "Show Round Scores" : "Next Category",
+                title: viewModel.isLastRevealCategory ? "Show Round Scores" : "Next Target",
                 waitingText: "Waiting for the host",
                 isEnabled: viewModel.canMoveOnFromCategory && viewModel.activeVote == nil
             ) { hostId in
@@ -368,6 +373,26 @@ private struct FloatingReactionView: View {
 }
 
 // MARK: - Points and voting
+
+/// "UNDETECTED!" beside a +10 answer when the points appear, with one quick pop.
+private struct UndetectedFlash: View {
+    @State private var popped = false
+
+    var body: some View {
+        Text("UNDETECTED!")
+            .font(.system(.caption, design: .rounded, weight: .heavy))
+            .tracking(1)
+            .foregroundStyle(Color.letterNavy)
+            .padding(.horizontal, 8)
+            .padding(.vertical, 2)
+            .background(Color.letterCoral, in: .capsule)
+            .rotationEffect(.degrees(-3))
+            .scaleEffect(popped ? 1 : 1.35)
+            .animation(.spring(response: 0.35, dampingFraction: 0.5), value: popped)
+            .onAppear { popped = true }
+            .accessibilityLabel("Undetected")
+    }
+}
 
 private struct PointsPill: View {
     let points: Int

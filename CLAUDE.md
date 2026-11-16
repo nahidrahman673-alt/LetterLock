@@ -1,8 +1,12 @@
-# LetterLock
+# LetterLock (shown to players as Alphabet Assassin)
 
-A SwiftUI party word game for iPhone. Each round, players get one letter and fill 10 categories with
-words starting with it. Rare answers score most. Played in a room of 2 to 8 friends, joined with a
-4-character room code.
+A SwiftUI party word game for iPhone. Each round, players get one letter and fill 10 categories
+("targets" in the app's wording) with words starting with it. Rare answers score most. Played in a room
+of 2 to 8 friends, joined with a 4-character room code.
+
+Players see the name **Alphabet Assassin** ("Assassin" under the home-screen icon). The project, target,
+folders and bundle ID stay LetterLock until the owner confirms the name in App Store Connect (they want to
+set up a company first, so App Store Connect waits).
 
 ## Working with the owner
 
@@ -60,7 +64,15 @@ LetterLock theme only (never the old "Great Minds" style). Colours live in `Lett
 navy #121324 background, surface #231E45, line #3A3368, field edge #7A72B8, cream #FFF7E6,
 lavender #B9B2D9, yellow #FFD23F (primary buttons), mint #3DDBB4, coral #FF6B5B (Lock In, Veto),
 lilac #B79CFF. Rounded bold type for titles and letter tiles. Primary buttons are 58pt tall with
-16pt corners. Every screen after Home shows the LetterLock title bar with Leave and mute.
+16pt corners. Every screen after Home shows the title bar (mini logo) with Leave and mute.
+
+Logo: the ninja A (`NinjaMark.swift`, a capital A with eye wrap and coral headband) above level
+ALPHABET (cream tiles) / ASSASSIN (yellow tiles) (`AssassinTiles` in HomeView). On Home it rolls in
+once per app launch with the shuffle's clack and land sounds. The app icon is the ninja A on navy, drawn
+by `swift Tools/make_app_icon.swift LetterLock/Assets.xcassets/AppIcon.appiconset/AppIcon.png`.
+Lines: Home "One letter. Ten targets. / No witnesses."; Answering and letter shuffle "Great minds
+~~think alike.~~ / Assassins don't." (think alike crossed out); a +10 answer shows "UNDETECTED!" at the
+reveal; Final results says "Master Assassin!".
 
 ## Code
 

@@ -20,12 +20,17 @@ struct FinalResultsView: View {
 
             let winners = viewModel.champions
             if !winners.isEmpty {
-                Image(systemName: winners.count > 1 ? "medal.fill" : "trophy.fill")
-                    .font(.system(size: 56))
-                    .foregroundStyle(Color.letterYellow)
-                Text(headline(for: winners))
+                NinjaMark(size: 96)
+                Text(winners.count > 1 ? "Shared win!" : "Master Assassin!")
                     .font(.system(.largeTitle, design: .rounded, weight: .heavy))
                     .foregroundStyle(Color.letterCream)
+                    .minimumScaleFactor(0.7)
+                    .lineLimit(1)
+                if winners.count == 1, let winner = winners.first {
+                    Text(winner.isLocal ? "You win!" : "\(winner.name) wins!")
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(Color.letterYellow)
+                }
                 if winners.count > 1 {
                     Text("\(winners.map { $0.isLocal ? "You" : $0.name }.formatted(.list(type: .and))) share first place")
                         .font(.headline)
@@ -81,12 +86,6 @@ struct FinalResultsView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
-    }
-
-    /// Ties go to Sudden Death; after 3 tries with no winner, the tied players share the win.
-    private func headline(for winners: [Player]) -> String {
-        guard winners.count == 1, let winner = winners.first else { return "Shared win!" }
-        return winner.isLocal ? "You win!" : "\(winner.name) wins!"
     }
 }
 

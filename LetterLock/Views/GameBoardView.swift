@@ -321,21 +321,25 @@ struct GameBoardView: View {
     }
 }
 
-/// "Great minds ~~think alike.~~ Don't." The game rewards answers nobody else gives.
-private struct QuoteView: View {
+/// "Great minds ~~think alike.~~ Assassins don't." The game rewards answers nobody else gives.
+/// On the Answering page and the letter shuffle screen.
+struct QuoteView: View {
+    var scale: CGFloat = 1
+
     var body: some View {
         VStack(spacing: 2) {
             Text("Great minds \(Text("think alike.").strikethrough(true, color: .letterMuted))")
-                .font(.system(size: 20, weight: .heavy, design: .rounded))
+                .font(.system(size: 20 * scale, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.letterMuted)
-            Text("Don't.")
-                .font(.system(size: 32, weight: .heavy, design: .rounded))
+            Text("Assassins don't.")
+                .font(.system(size: 30 * scale, weight: .heavy, design: .rounded))
                 .foregroundStyle(Color.letterYellow)
         }
         .multilineTextAlignment(.center)
-        .minimumScaleFactor(0.7)
+        .lineLimit(1)
+        .minimumScaleFactor(0.6)
         .accessibilityElement(children: .ignore)
-        .accessibilityLabel("Great minds think alike. Don't.")
+        .accessibilityLabel("Great minds think alike. Assassins don't.")
     }
 }
 
