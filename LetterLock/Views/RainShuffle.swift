@@ -335,8 +335,11 @@ struct RainShuffle: View {
     }
 }
 
+// The demo only exists in Debug builds, so this preview does too (it broke the Release build).
+#if DEBUG
 #Preview("Rain on repeat") {
     let viewModel = GameViewModel()
     viewModel.runShuffleDemo()
     return LetterChoiceView(viewModel: viewModel)
 }
+#endif
