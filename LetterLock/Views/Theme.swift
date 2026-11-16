@@ -109,6 +109,8 @@ struct LetterTile: View {
     var fill: Color = .letterCream
     var edge: Color = .letterYellow
     var tilt: Double = 0
+    /// 0 is full colour; up to 1 darkens the whole tile (the rain shuffle dims far-away tiles).
+    var dimming: Double = 0
 
     var body: some View {
         Text(letter)
@@ -116,9 +118,27 @@ struct LetterTile: View {
             .foregroundStyle(Color.letterNavy)
             .frame(width: size, height: size * 1.16)
             .background {
-                RoundedRectangle(cornerRadius: size * 0.22)
-                    .fill(fill)
-                    .shadow(color: edge, radius: 0, y: size * 0.1)
+                // The coloured edge is a second rounded shape peeking out below the face. It looks the
+                // same as a hard shadow but is far cheaper to draw, and there are many tiles on screen.
+                ZStack {
+                    RoundedRectangle(cornerRadius: size * 0.22)
+                        .fill(edge)
+                        .offset(y: size * 0.1)
+                    RoundedRectangle(cornerRadius: size * 0.22)
+                        .fill(fill)
+                }
+            }
+            .overlay {
+                // A see-through dark layer over face and edge: cheaper than a brightness filter.
+                if dimming > 0 {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: size * 0.22)
+                            .offset(y: size * 0.1)
+                        RoundedRectangle(cornerRadius: size * 0.22)
+                    }
+                    .foregroundStyle(Color.black.opacity(dimming))
+                    .compositingGroup()
+                }
             }
             .rotationEffect(.degrees(tilt))
     }

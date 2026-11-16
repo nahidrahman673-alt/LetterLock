@@ -49,14 +49,18 @@ struct GameTextField: UIViewRepresentable {
 
     func updateUIView(_ field: FocusingTextField, context: Context) {
         context.coordinator.parent = self
+        // Each setting is only touched when it changed: resetting them all on every redraw made
+        // UIKit redo layout (and sometimes reload the keyboard) for nothing.
         if field.text != text { field.text = text }
-        field.autocapitalizationType = capitalization
-        field.returnKeyType = returnKey
-        field.isEnabled = isEnabled
-        field.attributedPlaceholder = NSAttributedString(
-            string: placeholder,
-            attributes: [.foregroundColor: UIColor(Color.letterMuted)]
-        )
+        if field.autocapitalizationType != capitalization { field.autocapitalizationType = capitalization }
+        if field.returnKeyType != returnKey { field.returnKeyType = returnKey }
+        if field.isEnabled != isEnabled { field.isEnabled = isEnabled }
+        if field.attributedPlaceholder?.string != placeholder {
+            field.attributedPlaceholder = NSAttributedString(
+                string: placeholder,
+                attributes: [.foregroundColor: UIColor(Color.letterMuted)]
+            )
+        }
         field.wantsFocus = isFocused && isEnabled
     }
 

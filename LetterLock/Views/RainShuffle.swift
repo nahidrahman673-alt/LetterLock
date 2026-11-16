@@ -104,6 +104,9 @@ struct RainShuffle: View {
 
     // MARK: - Scene
 
+    /// Every moving tile is drawn into one Canvas each frame. Before, each tile was its own view whose
+    /// size changed every frame, so the phone re-laid-out up to ~50 letters per frame, dropped frames,
+    /// and the rain looked blurry. A Canvas draws the letters as sharp outlines at any size and angle.
     @ViewBuilder
     private func scene(at now: Date, in size: CGSize, screenTop: CGFloat) -> some View {
         ZStack {
@@ -112,18 +115,73 @@ struct RainShuffle: View {
                     .position(x: size.width / 2, y: size.height - 120 * 1.16 / 2)
             }
 
-            ForEach(drops) { drop in
-                rainTile(drop, now: now, in: size, screenTop: screenTop)
+            // A Canvas only draws inside its own box, so it reaches up to the top of the screen
+            // (tiles fall in from there), out to the sides, and well below the area (tiles bounce out
+            // over the buttons and off the bottom). Drawing still uses this area's coordinates.
+            let above = max(0, -screenTop) + 200
+            let below: CGFloat = 900
+            let side: CGFloat = 80
+            Canvas { context, _ in
+                var context = context
+                context.translateBy(x: side, y: above)
+                var sprites = drops.map { rainTile($0, now: now, in: size, screenTop: screenTop) }
+                if let chosenAt {
+                    sprites.append(hero(since: now.timeIntervalSince(chosenAt), in: size, screenTop: screenTop))
+                }
+                // Lower on screen means closer to the viewer, so it draws on top.
+                for sprite in sprites.sorted(by: { $0.layer < $1.layer }) {
+                    Self.draw(sprite, in: context)
+                }
             }
-
-            if let chosenAt {
-                hero(since: now.timeIntervalSince(chosenAt), in: size, screenTop: screenTop)
-            }
+            .frame(width: size.width + side * 2, height: size.height + above + below)
+            .offset(y: (below - above) / 2)
         }
         .frame(width: size.width, height: size.height)
     }
 
-    private func rainTile(_ drop: Drop, now: Date, in size: CGSize, screenTop: CGFloat) -> some View {
+    /// One tile to draw this frame: where its centre is, how big, and how it's turned and shaded.
+    private struct Sprite {
+        let letter: String
+        let center: CGPoint
+        /// Width; the face is 1.16 times as tall, with the coloured edge peeking out below.
+        let size: CGFloat
+        var fill: Color = .letterCream
+        let edge: Color
+        let tilt: Double
+        let dimming: Double
+        let layer: Double
+    }
+
+    /// Draws a tile exactly like `LetterTile`: coloured edge, cream face, navy letter.
+    private static func draw(_ sprite: Sprite, in context: GraphicsContext) {
+        var tile = context
+        tile.translateBy(x: sprite.center.x, y: sprite.center.y)
+        tile.rotate(by: .degrees(sprite.tilt))
+
+        let width = sprite.size
+        let height = width * 1.16
+        let face = CGRect(x: -width / 2, y: -height / 2, width: width, height: height)
+        let corner = width * 0.22
+        let faceShape = Path(roundedRect: face, cornerRadius: corner)
+        let edgeShape = Path(roundedRect: face.offsetBy(dx: 0, dy: width * 0.1), cornerRadius: corner)
+
+        tile.fill(edgeShape, with: .color(sprite.edge))
+        tile.fill(faceShape, with: .color(sprite.fill))
+        tile.draw(
+            Text(sprite.letter)
+                .font(.system(size: width * 0.68, weight: .heavy, design: .rounded))
+                .foregroundStyle(Color.letterNavy),
+            at: .zero,
+            anchor: .center
+        )
+        if sprite.dimming > 0 {
+            var shade = edgeShape
+            shade.addPath(faceShape)
+            tile.fill(shade, with: .color(.black.opacity(sprite.dimming)))
+        }
+    }
+
+    private func rainTile(_ drop: Drop, now: Date, in size: CGSize, screenTop: CGFloat) -> Sprite {
         let age = max(0, now.timeIntervalSince(drop.spawn))
         let startY = screenTop - drop.startAbove
 
@@ -137,15 +195,19 @@ struct RainShuffle: View {
         let scale = Self.perspective(at: depthFraction)
         let width = Self.tileSize * scale
 
-        return LetterTile(letter: drop.letter, size: width, edge: drop.edge, tilt: drop.spin * min(age, 2.5))
-            .brightness(Self.dimming(at: depthFraction))
-            .position(x: width / 2 + drop.x * max(0, size.width - width), y: y)
-            // Lower on screen means closer to the viewer, so it draws on top.
-            .zIndex(depthFraction)
+        return Sprite(
+            letter: drop.letter,
+            center: CGPoint(x: width / 2 + drop.x * max(0, size.width - width), y: y),
+            size: width,
+            edge: drop.edge,
+            tilt: drop.spin * min(age, 2.5),
+            dimming: Self.dimming(at: depthFraction),
+            layer: depthFraction
+        )
     }
 
     /// Drops onto the back floor, then bounces forward to the middle and front floors, growing as it comes.
-    private func hero(since t: Double, in size: CGSize, screenTop: CGFloat) -> some View {
+    private func hero(since t: Double, in size: CGSize, screenTop: CGFloat) -> Sprite {
         let fullHeight = Self.finalSize * 1.16
         let backScale = Self.tileSize * Self.perspective(at: Depth.back.floorLine) / Self.finalSize
         let middleScale = Self.tileSize * Self.perspective(at: Depth.middle.floorLine) / Self.finalSize * 1.6
@@ -186,10 +248,15 @@ struct RainShuffle: View {
             layer = 10
         }
 
-        return LetterTile(letter: letter, size: Self.finalSize * scale)
-            .brightness(brightness)
-            .position(x: size.width / 2, y: y)
-            .zIndex(layer)
+        return Sprite(
+            letter: letter,
+            center: CGPoint(x: size.width / 2, y: y),
+            size: Self.finalSize * scale,
+            edge: .letterYellow,
+            tilt: 0,
+            dimming: brightness,
+            layer: layer
+        )
     }
 
     // MARK: - Spawning
@@ -252,9 +319,9 @@ struct RainShuffle: View {
         0.45 + 0.8 * max(0, fraction)
     }
 
-    /// Further away (higher up) is dimmer.
+    /// Further away (higher up) is dimmer: how dark the shade over the tile is, 0 to 0.3.
     private static func dimming(at fraction: Double) -> Double {
-        -0.25 * (1 - min(1, max(0, fraction)))
+        0.3 * (1 - min(1, max(0, fraction)))
     }
 
     private static func lerp(_ a: Double, _ b: Double, _ t: Double) -> Double { a + (b - a) * t }

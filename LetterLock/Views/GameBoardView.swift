@@ -18,14 +18,17 @@ struct GameBoardView: View {
     /// stay clear of the Lock In button.
     private var isTyping: Bool { focusedCategoryID != nil }
 
+    // Speed: the clock, the dots and the wrong-letter warning are their own small views. They read the
+    // timer and the answers, which change every second and every keystroke, so only they redraw then,
+    // not this whole screen with all 10 answer boxes.
     var body: some View {
         VStack(spacing: isTyping ? 6 : 14) {
-            header
+            RoundHeader(viewModel: viewModel, isTyping: isTyping)
             // Hidden while typing to save room, unless the clock has just been cut.
             if !isTyping || viewModel.wasTimerCut {
                 lockInStatus
             }
-            pageDots
+            PageDots(viewModel: viewModel, page: $page, isTyping: isTyping)
 
             TabView(selection: $page) {
                 ForEach(categories.indices, id: \.self) { index in
@@ -63,41 +66,7 @@ struct GameBoardView: View {
         }
     }
 
-    // MARK: - Header
-
-    private var header: some View {
-        HStack(alignment: .center) {
-            LetterTile(letter: viewModel.currentLetter, size: isTyping ? 38 : 56)
-                .accessibilityLabel("Letter \(viewModel.currentLetter)")
-
-            Text("ROUND \(viewModel.currentRound)/\(viewModel.totalRounds)")
-                .font(.caption.weight(.semibold))
-                .tracking(1)
-                .foregroundStyle(Color.letterMuted)
-                .padding(.leading, 6)
-
-            Spacer()
-
-            VStack(alignment: .trailing, spacing: 0) {
-                Text("\(viewModel.timeRemaining)")
-                    .font(.system(size: isTyping ? 32 : 48, weight: .heavy, design: .rounded))
-                    .monospacedDigit()
-                    .contentTransition(.numericText(countsDown: true))
-                    .animation(.snappy, value: viewModel.timeRemaining)
-                    .foregroundStyle(viewModel.timeRemaining <= 10 ? Color.letterCoral : Color.letterCream)
-                if !isTyping {
-                    Text("SECONDS")
-                        .font(.caption2.weight(.semibold))
-                        .tracking(1)
-                        .foregroundStyle(Color.letterMuted)
-                }
-            }
-            .accessibilityElement(children: .ignore)
-            .accessibilityLabel("\(viewModel.timeRemaining) seconds left")
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 4)
-    }
+    // MARK: - Lock-in status
 
     /// One circle per player that lights up coral (with a little pop) when they lock in.
     /// Once the clock is cut, a coral warning takes over.
@@ -133,31 +102,6 @@ struct GameBoardView: View {
         }
     }
 
-    /// One dot per category. Filled once answered; tap to jump to it.
-    private var pageDots: some View {
-        HStack(spacing: 6) {
-            ForEach(categories.indices, id: \.self) { index in
-                let isAnswered = !(viewModel.answers[categories[index].id] ?? "")
-                    .trimmingCharacters(in: .whitespaces).isEmpty
-                Capsule()
-                    .fill(isAnswered ? Color.letterMint : Color.letterBorder)
-                    .frame(width: index == page ? 22 : 10, height: 10)
-                    .overlay {
-                        if index == page {
-                            Capsule().strokeBorder(Color.letterYellow, lineWidth: 2)
-                        }
-                    }
-                    .frame(height: isTyping ? 28 : 44)
-                    .contentShape(.rect)
-                    .onTapGesture {
-                        withAnimation(.snappy) { page = index }
-                    }
-                    .accessibilityLabel("\(categories[index].name), \(isAnswered ? "answered" : "empty")")
-                    .accessibilityAddTraits(.isButton)
-            }
-        }
-        .animation(.snappy, value: page)
-    }
 
     // MARK: - Pages
 
@@ -200,12 +144,7 @@ struct GameBoardView: View {
             }
 
             // A gentle warning, not a block: the answer can still be fixed before time's up.
-            if hasWrongLetter(category) {
-                Label("Must start with \(viewModel.currentLetter)", systemImage: "exclamationmark.circle.fill")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.letterCoral)
-                    .transition(.opacity)
-            }
+            WrongLetterWarning(viewModel: viewModel, categoryId: category.id)
 
             HStack {
                 Button {
@@ -313,8 +252,97 @@ struct GameBoardView: View {
         )
     }
 
-    private func hasWrongLetter(_ category: Category) -> Bool {
-        let text = viewModel.answers[category.id, default: ""].trimmingCharacters(in: .whitespaces)
+}
+
+/// Letter, round and the countdown. Its own view so the once-a-second tick redraws only this.
+private struct RoundHeader: View {
+    let viewModel: GameViewModel
+    let isTyping: Bool
+
+    var body: some View {
+        HStack(alignment: .center) {
+            LetterTile(letter: viewModel.currentLetter, size: isTyping ? 38 : 56)
+                .accessibilityLabel("Letter \(viewModel.currentLetter)")
+
+            Text("ROUND \(viewModel.currentRound)/\(viewModel.totalRounds)")
+                .font(.caption.weight(.semibold))
+                .tracking(1)
+                .foregroundStyle(Color.letterMuted)
+                .padding(.leading, 6)
+
+            Spacer()
+
+            VStack(alignment: .trailing, spacing: 0) {
+                Text("\(viewModel.timeRemaining)")
+                    .font(.system(size: isTyping ? 32 : 48, weight: .heavy, design: .rounded))
+                    .monospacedDigit()
+                    .contentTransition(.numericText(countsDown: true))
+                    .animation(.snappy, value: viewModel.timeRemaining)
+                    .foregroundStyle(viewModel.timeRemaining <= 10 ? Color.letterCoral : Color.letterCream)
+                if !isTyping {
+                    Text("SECONDS")
+                        .font(.caption2.weight(.semibold))
+                        .tracking(1)
+                        .foregroundStyle(Color.letterMuted)
+                }
+            }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("\(viewModel.timeRemaining) seconds left")
+        }
+        .padding(.horizontal, 20)
+        .padding(.top, 4)
+    }
+}
+
+/// One dot per target. Filled once answered; tap to jump to it. Its own view so typing redraws only this.
+private struct PageDots: View {
+    let viewModel: GameViewModel
+    @Binding var page: Int
+    let isTyping: Bool
+
+    var body: some View {
+        let categories = viewModel.categories
+        HStack(spacing: 6) {
+            ForEach(categories.indices, id: \.self) { index in
+                let isAnswered = !(viewModel.answers[categories[index].id] ?? "")
+                    .trimmingCharacters(in: .whitespaces).isEmpty
+                Capsule()
+                    .fill(isAnswered ? Color.letterMint : Color.letterBorder)
+                    .frame(width: index == page ? 22 : 10, height: 10)
+                    .overlay {
+                        if index == page {
+                            Capsule().strokeBorder(Color.letterYellow, lineWidth: 2)
+                        }
+                    }
+                    .frame(height: isTyping ? 28 : 44)
+                    .contentShape(.rect)
+                    .onTapGesture {
+                        withAnimation(.snappy) { page = index }
+                    }
+                    .accessibilityLabel("\(categories[index].name), \(isAnswered ? "answered" : "empty")")
+                    .accessibilityAddTraits(.isButton)
+            }
+        }
+        .animation(.snappy, value: page)
+    }
+}
+
+/// "Must start with M" under an answer that doesn't. Its own view so typing redraws only this.
+private struct WrongLetterWarning: View {
+    let viewModel: GameViewModel
+    let categoryId: UUID
+
+    var body: some View {
+        if hasWrongLetter {
+            Label("Must start with \(viewModel.currentLetter)", systemImage: "exclamationmark.circle.fill")
+                .font(.footnote.weight(.semibold))
+                .foregroundStyle(Color.letterCoral)
+                .transition(.opacity)
+        }
+    }
+
+    private var hasWrongLetter: Bool {
+        let text = viewModel.answers[categoryId, default: ""].trimmingCharacters(in: .whitespaces)
         // Wait for a second word before judging "The", "A" or "An", which get skipped.
         let waitingForMore = ["the", "a", "an"].contains(text.lowercased())
         return !text.isEmpty && !waitingForMore && !LetterRule.fits(text, letter: viewModel.currentLetter)

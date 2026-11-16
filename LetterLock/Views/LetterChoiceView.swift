@@ -41,11 +41,16 @@ struct LetterChoiceView: View {
                 .foregroundStyle(Color.letterMuted)
                 .frame(minHeight: 20)
 
-            // Fades in once the letter has landed.
-            if viewModel.hasChosenLetter && !viewModel.isShuffling {
-                QuoteView(scale: 0.85)
-                    .transition(.opacity)
+            // Fades in once the letter has landed. The fade is attached to this box only: on the whole
+            // screen it also slowed the falling tiles into each other, which looked blurry.
+            let showsQuote = viewModel.hasChosenLetter && !viewModel.isShuffling && !viewModel.isChooserWatchingAd
+            VStack {
+                if showsQuote {
+                    QuoteView(scale: 0.85)
+                        .transition(.opacity)
+                }
             }
+            .animation(.easeOut(duration: 0.4), value: showsQuote)
 
             if viewModel.isLocalChooser {
                 if viewModel.hasChosenLetter {
@@ -71,7 +76,7 @@ struct LetterChoiceView: View {
                 viewModel: viewModel,
                 title: "Start Round",
                 waitingText: "Waiting for the host to start",
-                isEnabled: viewModel.hasChosenLetter && !viewModel.isShuffling
+                isEnabled: viewModel.hasChosenLetter && !viewModel.isShuffling && !viewModel.isChooserWatchingAd
             ) { hostId in
                 viewModel.startRound(by: hostId)
             }
@@ -80,7 +85,6 @@ struct LetterChoiceView: View {
         .padding(.bottom, 8)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.letterNavy)
-        .animation(.easeOut(duration: 0.4), value: viewModel.hasChosenLetter && !viewModel.isShuffling)
         .fullScreenCover(isPresented: $viewModel.isShowingAd) {
             MockAdView(viewModel: viewModel)
                 .interactiveDismissDisabled()
@@ -93,6 +97,9 @@ struct LetterChoiceView: View {
     }
 
     private var statusText: String {
+        if viewModel.isChooserWatchingAd {
+            return "\(viewModel.letterChooser?.name ?? "They") got \(viewModel.currentLetter). Watching an ad to reshuffle…"
+        }
         if viewModel.isShuffling { return "Shuffling…" }
         if viewModel.hasChosenLetter { return "Locked in on \(viewModel.currentLetter)" }
         return viewModel.isLocalChooser ? "Tap Shuffle to pick from A to Z" : ""

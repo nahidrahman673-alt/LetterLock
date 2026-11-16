@@ -197,12 +197,15 @@ extension AssassinTiles where Tile == LetterTile {
 
 private extension View {
     /// Canva's "Roll": slides in from the left while turning a full circle, settling with a small bounce.
+    /// The piece turns solid almost at once (a slow fade left half see-through tiles overlapping their
+    /// neighbours, which looked smeared and blurry), then finishes its roll.
     func rollIn(_ isIn: Bool, delay: Double, distance: CGFloat = 70) -> some View {
         self
             .rotationEffect(.degrees(isIn ? 0 : -360))
             .offset(x: isIn ? 0 : -distance)
-            .opacity(isIn ? 1 : 0)
             .animation(.spring(response: 0.55, dampingFraction: 0.72).delay(delay), value: isIn)
+            .opacity(isIn ? 1 : 0)
+            .animation(.easeOut(duration: 0.08).delay(delay), value: isIn)
     }
 }
 

@@ -31,8 +31,10 @@ final class GameViewModel {
     static let suddenDeathSeconds = 10
     static let suddenDeathTries = 3
     static let suddenDeathIntroSeconds = 3.0
-    /// Sudden Death never uses these: too few fair answers for a 10-second race.
-    static let suddenDeathLetters = letterPool.filter { !["Q", "X", "Z"].contains($0) }
+    /// Letters with too few fair answers. Sudden Death never uses them, and a computer player who
+    /// lands on one reshuffles once, the way a real player would watch an ad to.
+    static let hardLetters: Set<String> = ["Q", "X", "Z"]
+    static let suddenDeathLetters = letterPool.filter { !hardLetters.contains($0) }
     /// An answer last typed in this close to 0:00 (and not locked in) is tagged "Cut off".
     static let cutOffWindow = 2.0
 
@@ -61,6 +63,9 @@ final class GameViewModel {
     private(set) var hasChosenLetter = false
     var isShowingAd = false
     private(set) var adSecondsRemaining = 0
+    /// A computer chooser landed on Q, X or Z and is "watching an ad" before reshuffling.
+    private(set) var isChooserWatchingAd = false
+    @ObservationIgnored private var chooserHasReshuffled = false
 
     // Round in play
     private(set) var timeRemaining = GameViewModel.timerOptions[0]
@@ -261,6 +266,8 @@ final class GameViewModel {
         currentLetter = "?"
         hasChosenLetter = false
         isShuffling = false
+        isChooserWatchingAd = false
+        chooserHasReshuffled = false
         gameState = .choosingLetter
 
         // Simulated choosers shuffle on their own after a beat.
@@ -325,14 +332,28 @@ final class GameViewModel {
             self.isShuffling = false
             self.hasChosenLetter = true
             self.sounds.play(.land)
+            await self.reshuffleIfComputerGotHardLetter()
         }
+    }
+
+    /// A computer chooser who lands on Q, X or Z "watches an ad" for a couple of seconds and
+    /// reshuffles, once per round, like a real player would. A second hard letter sticks.
+    private func reshuffleIfComputerGotHardLetter() async {
+        guard !isLocalChooser, !chooserHasReshuffled, Self.hardLetters.contains(currentLetter) else { return }
+        chooserHasReshuffled = true
+        // Set straight away so the host can't start the round on the hard letter meanwhile.
+        isChooserWatchingAd = true
+        try? await Task.sleep(for: .seconds(2.5))
+        guard !Task.isCancelled, gameState == .choosingLetter else { return }
+        isChooserWatchingAd = false
+        runShuffle()
     }
 
     // MARK: - Round
 
     /// Host only, once the letter is set.
     func startRound(by playerId: UUID) {
-        guard isHost(playerId), gameState == .choosingLetter, hasChosenLetter else { return }
+        guard isHost(playerId), gameState == .choosingLetter, hasChosenLetter, !isChooserWatchingAd else { return }
         cancelTasks()
         timeRemaining = roundSeconds
         answers = [:]
