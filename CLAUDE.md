@@ -59,7 +59,7 @@ compliance (privacy manifest and labels, ad network tracking prompt, honest age 
     Vatican City, England, Scotland, Wales, Northern Ireland), Boy's Name and Girl's Name (Wikidata first
     names; unisex on both).
   - Can be vetoed: City (GeoNames, 15,000+ people), Animal and Food/Drink (hand-written in
-    `Tools/word_sources/`; food is the basics so far: fruit, veg, everyday juices/drinks, baked goods),
+    `Tools/word_sources/`; food: fruit, veg, staples, dishes incl. Gulf/Arabic/Indian, sweets, snacks, drinks),
     Movies/Series, Celebrity, Brand (best-known on Wikidata, plus `*_extra.txt` top-ups).
   - Book/Movie Character has no list.
   - Rebuild with `Tools/make_word_lists.py` (its header says how); the Wikidata queries are in

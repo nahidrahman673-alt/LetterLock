@@ -132,7 +132,7 @@ applepie
 bagel
 baguette
 bakewelltart
-baklava
+baklava baklawa
 bananabread
 biscuit
 bread
@@ -184,3 +184,316 @@ swissroll
 tart
 teacake
 whitebread
+rice basmati basmatirice brownrice
+pasta
+spaghetti
+penne
+macaroni
+lasagne lasagna
+noodles noodle
+couscous
+bulgur bulgurwheat
+quinoa
+oats porridgeoats oat
+porridge
+cereal breakfastcereal
+cornflakes
+muesli
+granola
+flour
+egg
+cheese
+cheddar
+mozzarella
+parmesan
+feta
+halloumi
+brie
+creamcheese
+labneh labne
+butter
+ghee
+yogurt yoghurt yogurtdrink
+laban
+cream
+chicken
+beef
+lamb
+mutton
+pork
+bacon
+ham
+sausage
+turkey
+duck
+steak
+mince mincedmeat
+salami
+pepperoni
+fish
+salmon
+tuna
+cod
+haddock
+sardine
+mackerel
+seabass
+hammour
+prawn shrimp
+lobster
+crab
+mussel
+oyster
+squid calamari
+octopus
+tofu
+bean beans bakedbeans
+lentilsoup
+nut
+almond
+cashew
+peanut groundnut saltedpeanuts
+pistachio
+walnut
+hazelnut
+pecan
+macadamia
+brazilnut
+chestnut
+sunflowerseed
+pumpkinseed
+sesame sesameseed
+chiaseed chia
+honey
+jam
+marmalade
+peanutbutter
+oliveoil
+oil
+vinegar
+salt
+sugar
+ketchup tomatoketchup
+mayonnaise mayo
+mustard
+hummus houmous hummous
+tahini
+soysauce
+gravy
+salsa
+pesto
+toast
+pizza margherita margheritapizza
+burger hamburger cheeseburger
+hotdog
+sandwich
+wrap
+sushi
+sashimi
+ramen
+padthai
+friedrice
+dimsum
+dumpling
+springroll
+curry
+chickentikkamasala tikkamasala
+butterchicken
+korma
+biryani biriyani
+samosa
+pakora
+dal dhal daal
+paneer
+tandoorichicken tandoori
+kebab kabab kebob
+shishkebab
+donerkebab doner
+shawarma shwarma
+falafel
+fattoush
+tabbouleh tabouleh
+moutabal babaganoush babaghanoush
+kibbeh
+mandi
+machboos majboos machbous
+harees harris
+ouzi oozie
+kabsa
+fatayer
+manakish manakeesh manaeesh
+shakshuka shakshouka
+fulmedames foul ful
+koshari kushari
+mansaf
+maqluba maqloubeh
+tagine tajine
+paella
+tapas
+taco
+burrito
+nachos
+quesadilla
+fajita
+enchilada
+chilliconcarne chiliconcarne
+spaghettibolognese bolognese spagbol
+carbonara
+risotto
+gnocchi
+ravioli
+pancake
+waffle
+crepe
+frenchtoast
+omelette omelet
+scrambledeggs
+boiledegg
+friedegg
+fullenglish fullenglishbreakfast fryup
+fishandchips
+chips fries frenchfries
+mashedpotato mash
+jacketpotato bakedpotato
+roastdinner sundayroast roast
+roastchicken
+shepherdspie
+cottagepie
+steakandkidneypie
+toadinthehole
+bangersandmash
+yorkshirepudding
+stew
+soup
+salad
+caesarsalad
+greeksalad
+coleslaw
+friedchicken
+chickennuggets nuggets
+chickenwings wings
+meatballs meatball
+macandcheese macaronicheese macncheese
+pho
+bibimbap
+kimchi
+teriyaki
+tempura
+katsu katsucurry
+goulash
+moussaka
+gyro gyros
+souvlaki
+pierogi
+schnitzel
+fondue
+croquemonsieur
+poke pokebowl
+jollof jollofrice
+nasigoreng
+satay sate
+rendang
+laksa
+pastabake
+potnoodle
+beansontoast
+cheeseontoast
+toastie
+clubsandwich
+blt
+panini
+bruschetta
+chocolate
+darkchocolate
+milkchocolate
+whitechocolate
+icecream
+gelato
+frozenyogurt froyo
+sorbet
+lolly icelolly popsicle
+sweets candy
+jelly jello
+jellybeans jellybean
+gummybears gummies
+marshmallow
+lollipop
+toffee
+fudge
+caramel
+candyfloss cottoncandy
+liquorice licorice
+mints mint
+chewinggum gum bubblegum
+crisps potatochips
+popcorn
+nachoschips tortillachips
+trailmix
+granolabar cerealbar
+ricecake
+biscotti
+wafer
+custard
+pudding
+ricepudding
+breadandbutterpudding
+stickytoffeepudding
+trifle
+crumble applecrumble
+tiramisu
+mousse chocolatemousse
+pannacotta
+cremebrulee
+profiteroles
+pavlova
+meringue
+churros churro
+banoffeepie banoffee
+lemontart
+keylimepie
+browniesundae sundae
+kunafa kunafeh knafeh kanafeh
+luqaimat lugaimat
+ummali omali
+basbousa
+halwa halva
+maamoul
+gulabjamun
+jalebi
+kheer
+barfi
+ladoo laddu
+turkishdelight lokum
+stuffeddates
+mochi
+cannoli
+doughnutholes timbits
+poptart
+karak karaktea karakchai
+chai
+minttea
+greentea
+arabiccoffee gahwa qahwa
+turkishcoffee
+espresso
+cappuccino
+latte
+americano
+mocha
+macchiato
+flatwhite
+icedcoffee
+frappuccino frappe
+bubbletea boba
+sparklingwater sodawater
+mineralwater
+softdrink fizzydrink soda pop
+cola
+energydrink
+lassi
+ayran
+kombucha
+jallab
+tamarindjuice
+lemonmint lemonandmint limonana
+hibiscus karkade

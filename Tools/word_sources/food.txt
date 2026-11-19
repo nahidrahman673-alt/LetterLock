@@ -144,7 +144,7 @@ Apple pie
 Bagel
 Baguette
 Bakewell tart
-Baklava
+Baklava|Baklawa
 Banana bread
 Biscuit
 Bread
@@ -196,3 +196,324 @@ Swiss roll
 Tart
 Teacake
 White bread
+
+# Everyday staples: grains, dairy, eggs, meat, fish and seafood, nuts and seeds, cupboard basics
+Rice|Basmati|Basmati rice|Brown rice
+Pasta
+Spaghetti
+Penne
+Macaroni
+Lasagne|Lasagna
+Noodles|Noodle
+Couscous
+Bulgur|Bulgur wheat
+Quinoa
+Oats|Porridge oats|Oat
+Porridge
+Cereal|Breakfast cereal
+Cornflakes|Corn flakes
+Muesli
+Granola
+Flour
+Egg
+Cheese
+Cheddar
+Mozzarella
+Parmesan
+Feta
+Halloumi
+Brie
+Cream cheese
+Labneh|Labne
+Butter
+Ghee
+Yogurt|Yoghurt|Yogurt drink
+Laban
+Cream
+Chicken
+Beef
+Lamb
+Mutton
+Pork
+Bacon
+Ham
+Sausage
+Turkey
+Duck
+Steak
+Mince|Minced meat
+Salami
+Pepperoni
+Fish
+Salmon
+Tuna
+Cod
+Haddock
+Sardine
+Mackerel
+Sea bass
+Hammour
+Prawn|Shrimp
+Lobster
+Crab
+Mussel
+Oyster
+Squid|Calamari
+Octopus
+Tofu
+Bean|Beans|Baked beans
+Lentil soup
+Nut
+Almond
+Cashew
+Peanut|Groundnut|Salted peanuts
+Pistachio
+Walnut
+Hazelnut
+Pecan
+Macadamia
+Brazil nut
+Chestnut
+Sunflower seed
+Pumpkin seed
+Sesame|Sesame seed
+Chia seed|Chia
+Honey
+Jam
+Marmalade
+Peanut butter
+Olive oil
+Oil
+Vinegar
+Salt
+Sugar
+Ketchup|Tomato ketchup
+Mayonnaise|Mayo
+Mustard
+Hummus|Houmous|Hummous
+Tahini
+Soy sauce
+Gravy
+Salsa
+Pesto
+Toast
+
+# Dishes from around the world
+Pizza|Margherita|Margherita pizza
+Burger|Hamburger|Cheeseburger
+Hot dog
+Sandwich
+Wrap
+Sushi
+Sashimi
+Ramen
+Pad thai
+Fried rice
+Dim sum
+Dumpling
+Spring roll
+Curry
+Chicken tikka masala|Tikka masala
+Butter chicken
+Korma
+Biryani|Biriyani
+Samosa
+Pakora
+Dal|Dhal|Daal
+Paneer
+Tandoori chicken|Tandoori
+Kebab|Kabab|Kebob
+Shish kebab
+Doner kebab|Doner
+Shawarma|Shwarma
+Falafel
+Fattoush
+Tabbouleh|Tabouleh
+Moutabal|Baba ganoush|Baba ghanoush
+Kibbeh
+Mandi
+Machboos|Majboos|Machbous
+Harees|Harris
+Ouzi|Oozie
+Kabsa
+Fatayer
+Manakish|Manakeesh|Manaeesh
+Shakshuka|Shakshouka
+Ful medames|Foul|Ful
+Koshari|Kushari
+Mansaf
+Maqluba|Maqloubeh
+Tagine|Tajine
+Paella
+Tapas
+Taco
+Burrito
+Nachos
+Quesadilla
+Fajita
+Enchilada
+Chilli con carne|Chili con carne
+Spaghetti bolognese|Bolognese|Spag bol
+Carbonara
+Risotto
+Gnocchi
+Ravioli
+Pancake
+Waffle
+Crepe|Crêpe
+French toast
+Omelette|Omelet
+Scrambled eggs
+Boiled egg
+Fried egg
+Full English|Full English breakfast|Fry-up
+Fish and chips
+Chips|Fries|French fries
+Mashed potato|Mash
+Jacket potato|Baked potato
+Roast dinner|Sunday roast|Roast
+Roast chicken
+Shepherd's pie
+Cottage pie
+Steak and kidney pie
+Toad in the hole
+Bangers and mash
+Yorkshire pudding
+Stew
+Soup
+Salad
+Caesar salad
+Greek salad
+Coleslaw
+Fried chicken
+Chicken nuggets|Nuggets
+Chicken wings|Wings
+Meatballs|Meatball
+Mac and cheese|Macaroni cheese|Mac n cheese
+Pho
+Bibimbap
+Kimchi
+Teriyaki
+Tempura
+Katsu|Katsu curry
+Goulash
+Moussaka
+Gyro|Gyros
+Souvlaki
+Pierogi
+Schnitzel
+Fondue
+Croque monsieur
+Poke|Poke bowl
+Jollof|Jollof rice
+Nasi goreng
+Satay|Sate
+Rendang
+Laksa
+Pasta bake
+Pot noodle
+Beans on toast
+Cheese on toast
+Toastie
+Club sandwich
+BLT
+Panini
+Bruschetta
+
+# Sweets, desserts and snacks
+Chocolate
+Dark chocolate
+Milk chocolate
+White chocolate
+Ice cream
+Gelato
+Frozen yogurt|Froyo
+Sorbet
+Lolly|Ice lolly|Popsicle
+Sweets|Candy
+Jelly|Jello
+Jelly beans|Jelly bean
+Gummy bears|Gummies
+Marshmallow
+Lollipop
+Toffee
+Fudge
+Caramel
+Candy floss|Cotton candy
+Liquorice|Licorice
+Mints|Mint
+Chewing gum|Gum|Bubblegum
+Crisps|Potato chips
+Popcorn
+Nachos chips|Tortilla chips
+Trail mix
+Granola bar|Cereal bar
+Rice cake
+Biscotti
+Wafer
+Custard
+Pudding
+Rice pudding
+Bread and butter pudding
+Sticky toffee pudding
+Trifle
+Crumble|Apple crumble
+Tiramisu
+Mousse|Chocolate mousse
+Panna cotta
+Creme brulee|Crème brûlée
+Profiteroles
+Pavlova
+Meringue
+Churros|Churro
+Banoffee pie|Banoffee
+Lemon tart
+Key lime pie
+Brownie sundae|Sundae
+Kunafa|Kunafeh|Knafeh|Kanafeh
+Luqaimat|Lugaimat
+Umm Ali|Om Ali
+Basbousa
+Halwa|Halva
+Maamoul
+Gulab jamun
+Jalebi
+Kheer
+Barfi
+Ladoo|Laddu
+Turkish delight|Lokum
+Stuffed dates
+Mochi
+Cannoli
+Doughnut holes|Timbits
+Pop tart|Pop-tart
+
+# More drinks
+Karak|Karak tea|Karak chai
+Chai
+Mint tea
+Green tea
+Arabic coffee|Gahwa|Qahwa
+Turkish coffee
+Espresso
+Cappuccino
+Latte
+Americano
+Mocha
+Macchiato
+Flat white
+Iced coffee
+Frappuccino|Frappe
+Bubble tea|Boba
+Sparkling water|Soda water
+Mineral water
+Soft drink|Fizzy drink|Soda|Pop
+Cola
+Energy drink
+Lassi
+Ayran
+Kombucha
+Jallab
+Tamarind juice
+Lemon mint|Lemon and mint|Limonana
+Hibiscus|Karkade
