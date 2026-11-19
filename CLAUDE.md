@@ -37,19 +37,24 @@ compliance (privacy manifest and labels, ad network tracking prompt, honest age 
 ## Rules (summary; the Rules sheet is the source of truth)
 
 - 2 to 8 players. Host sets 1, 3 or 5 rounds (default 5) and a 90 or 60 second timer (default 90).
-- Players take turns choosing the letter: Shuffle picks A to Z at random; watching an ad reshuffles.
+- Players take turns choosing the letter: Shuffle picks A to Z at random; watching an ad reshuffles,
+  once per turn. Once the letter lands, a 5-second countdown starts the round by itself (the host can
+  start sooner; a reshuffle restarts it). A computer chooser that lands on Q, X or Z reshuffles once.
 - 10 fixed categories, one per page: Boy's Name, Girl's Name, Country, City, Animal, Food/Drink,
   Movies/Series, Book/Movie Character, Celebrity, Brand.
 - Lock In ends your answering. When 3 players lock in, the clock drops to 5 seconds.
 - Scoring per category: unique 10, two the same 5 each, three or more 0, blank 0, vetoed 0, wrong letter 0.
 - Letter check (`LetterRule` in GameModels.swift): the first word must start with the letter; a leading
-  "The/A/An" is skipped; accents ignored; answers starting with a number are left to Veto. A coral note
+  "The/A/An" is skipped, and so is a title before a name (Prince William counts for W; "Prince" alone or
+  "Prince of Persia" counts for P; Saint/St is not skipped); accents ignored; answers starting with a number are left to Veto. A coral note
   warns while typing; the reveal shows "Wrong letter".
   Matching ignores capitals and spaces; spelling is never checked, but players can vote two answers
   "Same answer?" (the app suggests look/sound-alikes via `AnswerSimilarity`; voted pairs share `mergedKey`).
 - Answers still being typed at 0:00 (not locked in) are tagged "Cut off at 0:00" at the reveal.
 - Reveal: one category at a time, one player at a time; points show once all are revealed.
   Veto starts a vote of everyone but the author; more rejects than accepts scores it 0, a tie keeps it.
+  Appeal: the author of a "Wrong letter" answer can appeal once (at the reveal or a Sudden Death result);
+  everyone else votes Allow or Keep out; more Allow than Keep out makes it count, a tie keeps it out.
 - Highest total wins. Equal top totals go to Sudden Death (`SuddenDeathView.swift`): only the tied players
   answer one random category with a new letter (never Q, X or Z) in 10 seconds; the fastest right, unique, un-vetoed answer
   wins (times to the hundredth); the other players judge with Veto; after 3 tries with no winner it's a

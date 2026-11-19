@@ -34,6 +34,8 @@ final class GameViewModel {
     /// Letters with too few fair answers. Sudden Death never uses them, and a computer player who
     /// lands on one reshuffles once, the way a real player would watch an ad to.
     static let hardLetters: Set<String> = ["Q", "X", "Z"]
+    /// Seconds between the letter landing and the round starting by itself.
+    static let roundStartCountdownSeconds = 5
     static let suddenDeathLetters = letterPool.filter { !hardLetters.contains($0) }
     /// An answer last typed in this close to 0:00 (and not locked in) is tagged "Cut off".
     static let cutOffWindow = 2.0
@@ -65,7 +67,14 @@ final class GameViewModel {
     private(set) var adSecondsRemaining = 0
     /// A computer chooser landed on Q, X or Z and is "watching an ad" before reshuffling.
     private(set) var isChooserWatchingAd = false
-    @ObservationIgnored private var chooserHasReshuffled = false
+    /// One reshuffle per turn, so the countdown can't be restarted over and over to fish for an easy letter.
+    private(set) var chooserHasReshuffled = false
+    /// Seconds left before the round starts by itself, once the letter has landed. Nil when not counting.
+    /// Stops players getting unlimited thinking time while the letter sits on screen.
+    private(set) var roundStartCountdown: Int?
+    @ObservationIgnored private var countdownTask: Task<Void, Never>?
+    /// Off only for the Debug shuffle demo, which keeps shuffling instead of starting a round.
+    @ObservationIgnored fileprivate var autoStartsRound = true
 
     // Round in play
     private(set) var timeRemaining = GameViewModel.timerOptions[0]
@@ -287,8 +296,11 @@ final class GameViewModel {
     }
 
     /// Prototype stand-in for a rewarded ad. The reshuffle runs once the ad is closed.
+    /// Once per turn; the countdown pauses while the ad plays and starts again on the new letter.
     func watchAdToReshuffle() {
-        guard isLocalChooser, hasChosenLetter, !isShuffling else { return }
+        guard isLocalChooser, hasChosenLetter, !isShuffling, !chooserHasReshuffled else { return }
+        chooserHasReshuffled = true
+        stopRoundStartCountdown()
         adSecondsRemaining = Self.adDuration
         isShowingAd = true
         sounds.setMusicDucked(true)
@@ -333,7 +345,34 @@ final class GameViewModel {
             self.hasChosenLetter = true
             self.sounds.play(.land)
             await self.reshuffleIfComputerGotHardLetter()
+            // Unless a computer chooser is reshuffling (which starts its own shuffle), count down.
+            guard !Task.isCancelled, self.hasChosenLetter, !self.isShuffling, !self.isChooserWatchingAd else { return }
+            self.startRoundStartCountdown()
         }
+    }
+
+    /// "Round starts in 5…": the round begins by itself at 0, so nobody gets extra thinking time with
+    /// the letter on screen. The host can still start it sooner.
+    private func startRoundStartCountdown() {
+        guard autoStartsRound, gameState == .choosingLetter else { return }
+        countdownTask?.cancel()
+        roundStartCountdown = Self.roundStartCountdownSeconds
+        countdownTask = Task { [weak self] in
+            while let self, let left = self.roundStartCountdown, left > 0 {
+                try? await Task.sleep(for: .seconds(1))
+                guard !Task.isCancelled, self.gameState == .choosingLetter else { return }
+                self.roundStartCountdown = left - 1
+                if left > 1 { self.sounds.play(.tick) }
+            }
+            guard let self, !Task.isCancelled, let host = self.hostPlayer else { return }
+            self.startRound(by: host.id)
+        }
+    }
+
+    private func stopRoundStartCountdown() {
+        countdownTask?.cancel()
+        countdownTask = nil
+        roundStartCountdown = nil
     }
 
     /// A computer chooser who lands on Q, X or Z "watches an ad" for a couple of seconds and
@@ -597,6 +636,35 @@ final class GameViewModel {
         runBotBallots(voters, acceptChance: acceptChance)
     }
 
+    // MARK: - Appeal
+
+    /// The author of a "Wrong letter" answer can ask everyone else to let it count, once.
+    func canAppeal(_ answer: RoundAnswer) -> Bool {
+        guard activeVote == nil, answer.hasWrongLetter, !answer.wasAppealed, !answer.isBlank,
+              answer.verdict == .accepted, answer.playerId == localPlayer?.id else { return false }
+        switch gameState {
+        case .reveal: return isRevealed(answer)
+        case .suddenDeath: return suddenDeathPhase == .result
+        default: return false
+        }
+    }
+
+    /// Starts a vote among everyone except the author (in Sudden Death, the judges).
+    /// More Allow than Keep out and the answer counts; a tie keeps the app's ruling.
+    func appeal(_ answerId: UUID) {
+        guard let answer = answer(answerId), canAppeal(answer) else { return }
+        var voters = players
+            .filter { $0.id != answer.playerId }
+            .filter { gameState != .suddenDeath || !suddenDeathPlayerIds.contains($0.id) }
+            .map(\.id)
+        // Sudden Death with nobody left to judge (everyone was tied): the other players decide.
+        if voters.isEmpty { voters = players.filter { $0.id != answer.playerId }.map(\.id) }
+        guard !voters.isEmpty else { return }
+        activeVote = VetoVote(answerId: answer.id, voterIds: voters, isAppeal: true)
+        sounds.play(.veto)
+        runBotBallots(voters, acceptChance: 0.6)
+    }
+
     /// Simulated players vote over the next couple of seconds.
     private func runBotBallots(_ voters: [UUID], acceptChance: Double) {
         let bots = players.filter { !$0.isLocal && voters.contains($0.id) }.map(\.id)
@@ -686,7 +754,23 @@ final class GameViewModel {
         vote.ballots[playerId] = accept
         activeVote = vote
         guard vote.isComplete else { return }
-        if let otherId = vote.matchAnswerId {
+        if vote.isAppeal {
+            if let index = roundAnswers.firstIndex(where: { $0.id == vote.answerId }) {
+                roundAnswers[index].wasAppealed = true
+                if vote.isAppealAllowed {
+                    roundAnswers[index].hasWrongLetter = false
+                    // It has just been voted on, so it can't be vetoed straight after.
+                    roundAnswers[index].wasVoted = true
+                }
+                scoreRound()
+            } else if let index = suddenDeathAnswers.firstIndex(where: { $0.id == vote.answerId }) {
+                suddenDeathAnswers[index].wasAppealed = true
+                if vote.isAppealAllowed {
+                    suddenDeathAnswers[index].hasWrongLetter = false
+                    suddenDeathAnswers[index].wasVoted = true
+                }
+            }
+        } else if let otherId = vote.matchAnswerId {
             votedMatchPairs.insert(Self.matchPairKey(vote.answerId, otherId))
             if vote.isSameAnswer { mergeAnswers(vote.answerId, otherId) }
             scoreRound()
@@ -944,6 +1028,7 @@ final class GameViewModel {
     }
 
     private func cancelTasks() {
+        stopRoundStartCountdown()
         for task in [timerTask, shuffleTask, adTask, voteTask, revealTask] { task?.cancel() }
         timerTask = nil
         shuffleTask = nil
@@ -1039,6 +1124,7 @@ extension GameViewModel {
         startNewGame()
         guard let host = hostPlayer else { return }
         startGame(by: host.id)
+        autoStartsRound = false
         shuffleTask = Task { [weak self] in
             while !Task.isCancelled {
                 guard let self, self.gameState == .choosingLetter else { return }

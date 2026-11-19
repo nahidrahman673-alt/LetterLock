@@ -26,10 +26,14 @@ struct RainShuffle: View {
     /// to 1.25× at the bottom (see `perspective(at:)`).
     private static let tileSize: CGFloat = 48
     private static let finalSize: CGFloat = 200
-    private static let gravity = 2600.0
+    /// Lowered from 2600 so tiles fall about 12% slower: at full speed they moved too far between frames
+    /// for the eye to follow, which read as blur on the phone.
+    private static let gravity = 2000.0
     private static let bounciness = 0.5
     /// Long enough for any tile to bounce down every floor and leave the screen.
-    private static let lifetime = 4.0
+    private static let lifetime = 4.6
+    /// Letters are laid out once at this size and scaled to each tile, instead of every frame.
+    private static let letterBaseSize: CGFloat = 100
     private static let edges: [Color] = [.letterYellow, .letterMint, .letterCoral, .letterLilac]
 
     /// Hero timing: lands on the back floor, hops to the middle, then to the front.
@@ -109,18 +113,21 @@ struct RainShuffle: View {
     /// and the rain looked blurry. A Canvas draws the letters as sharp outlines at any size and angle.
     @ViewBuilder
     private func scene(at now: Date, in size: CGSize, screenTop: CGFloat) -> some View {
+        // A Canvas only draws inside its own box, so it reaches up to the top of the screen
+        // (tiles fall in from there), out to the sides, and well below the area (tiles bounce out
+        // over the buttons and off the bottom). Drawing still uses this area's coordinates.
+        // It sits in an overlay so its bigger box doesn't move the waiting "?" tile.
+        let above = max(0, -screenTop) + 200
+        let below: CGFloat = 900
+        let side: CGFloat = 80
         ZStack {
             if drops.isEmpty && chosenAt == nil {
                 LetterTile(letter: "?", size: 120)
                     .position(x: size.width / 2, y: size.height - 120 * 1.16 / 2)
             }
-
-            // A Canvas only draws inside its own box, so it reaches up to the top of the screen
-            // (tiles fall in from there), out to the sides, and well below the area (tiles bounce out
-            // over the buttons and off the bottom). Drawing still uses this area's coordinates.
-            let above = max(0, -screenTop) + 200
-            let below: CGFloat = 900
-            let side: CGFloat = 80
+        }
+        .frame(width: size.width, height: size.height)
+        .overlay {
             Canvas { context, _ in
                 var context = context
                 context.translateBy(x: side, y: above)
@@ -128,9 +135,17 @@ struct RainShuffle: View {
                 if let chosenAt {
                     sprites.append(hero(since: now.timeIntervalSince(chosenAt), in: size, screenTop: screenTop))
                 }
+                // Each letter's shape is worked out once per frame, not once per tile.
+                var letters: [String: GraphicsContext.ResolvedText] = [:]
                 // Lower on screen means closer to the viewer, so it draws on top.
                 for sprite in sprites.sorted(by: { $0.layer < $1.layer }) {
-                    Self.draw(sprite, in: context)
+                    let letter = letters[sprite.letter] ?? context.resolve(
+                        Text(sprite.letter)
+                            .font(.system(size: Self.letterBaseSize, weight: .heavy, design: .rounded))
+                            .foregroundStyle(Color.letterNavy)
+                    )
+                    letters[sprite.letter] = letter
+                    Self.draw(sprite, letter: letter, in: context)
                 }
             }
             .frame(width: size.width + side * 2, height: size.height + above + below)
@@ -153,7 +168,7 @@ struct RainShuffle: View {
     }
 
     /// Draws a tile exactly like `LetterTile`: coloured edge, cream face, navy letter.
-    private static func draw(_ sprite: Sprite, in context: GraphicsContext) {
+    private static func draw(_ sprite: Sprite, letter: GraphicsContext.ResolvedText, in context: GraphicsContext) {
         var tile = context
         tile.translateBy(x: sprite.center.x, y: sprite.center.y)
         tile.rotate(by: .degrees(sprite.tilt))
@@ -167,13 +182,11 @@ struct RainShuffle: View {
 
         tile.fill(edgeShape, with: .color(sprite.edge))
         tile.fill(faceShape, with: .color(sprite.fill))
-        tile.draw(
-            Text(sprite.letter)
-                .font(.system(size: width * 0.68, weight: .heavy, design: .rounded))
-                .foregroundStyle(Color.letterNavy),
-            at: .zero,
-            anchor: .center
-        )
+        // The letter is drawn as outlines, so scaling it down from the base size stays sharp.
+        var ink = tile
+        let letterScale = width * 0.68 / letterBaseSize
+        ink.scaleBy(x: letterScale, y: letterScale)
+        ink.draw(letter, at: .zero, anchor: .center)
         if sprite.dimming > 0 {
             var shade = edgeShape
             shade.addPath(faceShape)

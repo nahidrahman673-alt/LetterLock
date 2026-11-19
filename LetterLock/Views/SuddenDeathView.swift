@@ -271,6 +271,10 @@ struct SuddenDeathView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
 
+            if viewModel.canAppeal(answer) {
+                AppealButton { viewModel.appeal(answer.id) }
+            }
+
             if viewModel.canVeto(answer) {
                 Button("Veto") {
                     viewModel.veto(answer.id)

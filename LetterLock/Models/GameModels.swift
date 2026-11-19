@@ -126,7 +126,11 @@ struct RoundAnswer: Identifiable, Hashable {
     var isBlank: Bool { text.isEmpty }
 
     /// Set when the round ends: the answer doesn't start with the round's letter, so it scores 0.
+    /// Cleared if the author appeals and the other players allow it.
     var hasWrongLetter = false
+
+    /// True once its author has appealed a "Wrong letter" ruling, so it can be appealed only once.
+    var wasAppealed = false
 
     /// Blank, wrong-letter and vetoed answers score nothing and don't count as matches.
     var canScore: Bool { !isBlank && !hasWrongLetter && verdict == .accepted }
@@ -152,6 +156,19 @@ enum LetterRule {
     /// A leading "The", "A" or "An" is skipped, so "The Matrix" counts for M, not T.
     private static let skippedWords: Set<String> = ["the", "a", "an"]
 
+    /// A title in front of a name is skipped too, so "Prince William" counts for W and "Dr Dre" for D.
+    /// On its own it counts ("Prince" the singer is P, "Queen" the band is Q). Anything the rule gets
+    /// wrong, players can Appeal. "Saint" and "St." are left out on purpose: places like Saint Lucia and
+    /// St Petersburg count for S.
+    private static let titles: Set<String> = [
+        "prince", "princess", "king", "queen", "sir", "dame", "lady", "lord", "duke", "duchess",
+        "dr", "doctor", "mr", "mrs", "ms", "miss", "captain", "president",
+    ]
+
+    /// Words that show the title is part of a longer name, not in front of one: "Prince of Persia"
+    /// still counts for P.
+    private static let joiningWords: Set<String> = ["of", "and", "&", "the", "de", "von", "van"]
+
     /// True if the answer fits the letter. Capitals and accents don't matter ("Émile" fits E).
     /// Answers starting with a number ("7 Up") can't be judged here, so they're left to a veto.
     static func fits(_ text: String, letter: String) -> Bool {
@@ -159,10 +176,20 @@ enum LetterRule {
         if words.count > 1, skippedWords.contains(words[0].lowercased()) {
             words.removeFirst()
         }
+        if words.count > 1,
+           titles.contains(bare(words[0])),
+           !joiningWords.contains(words[1].lowercased()) {
+            words.removeFirst()
+        }
         // Ignore quote marks and brackets in front of the word.
         guard let first = words.first?.first(where: { $0.isLetter || $0.isNumber }) else { return false }
         if first.isNumber { return true }
         return plain(first) == plain(Character(letter))
+    }
+
+    /// "Dr." and "St." read as "dr" and "st".
+    private static func bare(_ word: String) -> String {
+        word.lowercased().filter { $0.isLetter }
     }
 
     private static func plain(_ character: Character) -> String {
@@ -188,7 +215,14 @@ struct VetoVote: Identifiable, Equatable {
     /// Set for a "Same answer?" vote: is `answerId` the same answer as this one? A ballot of true means "Same".
     var matchAnswerId: UUID?
 
+    /// Set for an Appeal: the author thinks the app marked their answer "Wrong letter" by mistake.
+    /// A ballot of true means "Allow".
+    var isAppeal = false
+
     var isMatchVote: Bool { matchAnswerId != nil }
+
+    /// Appeals: more Allow than Keep out lets the answer count. A tie keeps the app's ruling.
+    var isAppealAllowed: Bool { acceptCount > rejectCount }
     var acceptCount: Int { ballots.values.filter { $0 }.count }
     var rejectCount: Int { ballots.values.filter { !$0 }.count }
     var isComplete: Bool { ballots.count == voterIds.count }

@@ -212,9 +212,18 @@ struct RevealView: View {
                 .contentShape(.rect)
                 .accessibilityLabel("Veto \(answer.text) by \(name)")
             } else if isRevealed, answer.hasWrongLetter {
-                Text("Wrong letter")
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(answer.wasAppealed ? "Wrong letter · appeal lost" : "Wrong letter")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(Color.letterCoral)
+                    if viewModel.canAppeal(answer) {
+                        AppealButton { viewModel.appeal(answer.id) }
+                    }
+                }
+            } else if answer.wasAppealed {
+                Text("Allowed on appeal")
                     .font(.caption2.weight(.bold))
-                    .foregroundStyle(Color.letterCoral)
+                    .foregroundStyle(Color.letterMint)
             } else if answer.wasVoted {
                 Text(isRejected ? "Rejected" : "Upheld")
                     .font(.caption2.weight(.bold))
@@ -374,6 +383,24 @@ private struct FloatingReactionView: View {
 
 // MARK: - Points and voting
 
+/// On your own "Wrong letter" answer: asks the other players to let it count (Prince William for W).
+/// Shared by the reveal and Sudden Death.
+struct AppealButton: View {
+    let action: () -> Void
+
+    var body: some View {
+        Button("Appeal", action: action)
+            .font(.caption.weight(.bold))
+            .foregroundStyle(Color.letterYellow)
+            .padding(.horizontal, 10)
+            .frame(minHeight: 30)
+            .overlay { Capsule().strokeBorder(Color.letterYellow, lineWidth: 1.5) }
+            .frame(minHeight: 44)
+            .contentShape(.rect)
+            .accessibilityLabel("Appeal the wrong letter ruling")
+    }
+}
+
 /// "UNDETECTED!" beside a +10 answer when the points appear, with one quick pop.
 private struct UndetectedFlash: View {
     @State private var popped = false
@@ -429,10 +456,10 @@ struct VetoVoteSheet: View {
         if let vote = viewModel.activeVote, let answer = viewModel.answer(vote.answerId) {
             let other = vote.matchAnswerId.flatMap(viewModel.answer)
             VStack(alignment: .leading, spacing: 18) {
-                Text(other == nil ? "VETO VOTE" : "SAME ANSWER?")
+                Text(vote.isAppeal ? "APPEAL" : other == nil ? "VETO VOTE" : "SAME ANSWER?")
                     .font(.caption.weight(.bold))
                     .tracking(1)
-                    .foregroundStyle(other == nil ? Color.letterCoral : Color.letterLilac)
+                    .foregroundStyle(vote.isAppeal ? Color.letterYellow : other == nil ? Color.letterCoral : Color.letterLilac)
 
                 VStack(alignment: .leading, spacing: 6) {
                     if let other {
@@ -444,6 +471,17 @@ struct VetoVoteSheet: View {
                             .font(.subheadline)
                             .foregroundStyle(Color.letterMuted)
                         Text("If most say Same, they count as a match and the points change.")
+                            .font(.footnote)
+                            .foregroundStyle(Color.letterMuted)
+                    } else if vote.isAppeal {
+                        Text("Should \u{201C}\(answer.text)\u{201D} count for \(viewModel.currentLetter)?")
+                            .font(.system(.title2, design: .rounded, weight: .heavy))
+                            .foregroundStyle(Color.letterCream)
+                            .fixedSize(horizontal: false, vertical: true)
+                        Text("\(viewModel.player(answer.playerId)?.name ?? "") · \(viewModel.categoryName(for: answer.categoryId))")
+                            .font(.subheadline)
+                            .foregroundStyle(Color.letterMuted)
+                        Text("The app marked it Wrong letter. If most say Allow, it counts after all.")
                             .font(.footnote)
                             .foregroundStyle(Color.letterMuted)
                     } else {
@@ -471,7 +509,13 @@ struct VetoVoteSheet: View {
                 Spacer(minLength: 0)
 
                 if vote.isComplete {
-                    if vote.isMatchVote {
+                    if vote.isAppeal {
+                        Text(vote.isAppealAllowed
+                             ? "Allowed \(vote.acceptCount)–\(vote.rejectCount). It counts."
+                             : "Kept out \(vote.rejectCount)–\(vote.acceptCount). It stays Wrong letter.")
+                            .font(.headline)
+                            .foregroundStyle(vote.isAppealAllowed ? Color.letterMint : Color.letterCoral)
+                    } else if vote.isMatchVote {
                         Text(vote.isSameAnswer
                              ? "Same \(vote.acceptCount)–\(vote.rejectCount). They now count as a match."
                              : "Different \(vote.rejectCount)–\(vote.acceptCount). They keep their points.")
@@ -492,9 +536,9 @@ struct VetoVoteSheet: View {
                     .buttonStyle(FilledGameButtonStyle())
                 } else if !viewModel.hasLocalVoted() {
                     HStack(spacing: 12) {
-                        Button(vote.isMatchVote ? "Different" : "Reject") { viewModel.castVote(accept: false) }
+                        Button(vote.isAppeal ? "Keep out" : vote.isMatchVote ? "Different" : "Reject") { viewModel.castVote(accept: false) }
                             .buttonStyle(FilledGameButtonStyle(fill: .letterCoral))
-                        Button(vote.isMatchVote ? "Same" : "Accept") { viewModel.castVote(accept: true) }
+                        Button(vote.isAppeal ? "Allow" : vote.isMatchVote ? "Same" : "Accept") { viewModel.castVote(accept: true) }
                             .buttonStyle(FilledGameButtonStyle(fill: .letterMint))
                     }
                 } else {
@@ -522,9 +566,9 @@ struct VetoVoteSheet: View {
             Spacer()
             switch ballot {
             case .some(true):
-                Label(vote.isMatchVote ? "Same" : "Accept", systemImage: "checkmark.circle.fill").foregroundStyle(Color.letterMint)
+                Label(vote.isAppeal ? "Allow" : vote.isMatchVote ? "Same" : "Accept", systemImage: "checkmark.circle.fill").foregroundStyle(Color.letterMint)
             case .some(false):
-                Label(vote.isMatchVote ? "Different" : "Reject", systemImage: "xmark.circle.fill").foregroundStyle(Color.letterCoral)
+                Label(vote.isAppeal ? "Keep out" : vote.isMatchVote ? "Different" : "Reject", systemImage: "xmark.circle.fill").foregroundStyle(Color.letterCoral)
             case .none:
                 Text("Voting…").foregroundStyle(Color.letterMuted)
             }

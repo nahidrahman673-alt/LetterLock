@@ -54,12 +54,18 @@ struct LetterChoiceView: View {
 
             if viewModel.isLocalChooser {
                 if viewModel.hasChosenLetter {
+                    // One reshuffle per turn: after that the button stays, greyed, so the layout doesn't jump.
                     Button {
                         viewModel.watchAdToReshuffle()
                     } label: {
-                        Label("Watch Ad to Reshuffle", systemImage: "play.rectangle.fill")
+                        Label(
+                            viewModel.chooserHasReshuffled ? "Reshuffle used" : "Watch Ad to Reshuffle",
+                            systemImage: "play.rectangle.fill"
+                        )
                     }
                     .buttonStyle(OutlinedGameButtonStyle())
+                    .disabled(viewModel.chooserHasReshuffled)
+                    .opacity(viewModel.chooserHasReshuffled ? 0.4 : 1)
                 } else {
                     Button {
                         viewModel.shuffleLetter()
@@ -74,8 +80,8 @@ struct LetterChoiceView: View {
 
             HostActionButton(
                 viewModel: viewModel,
-                title: "Start Round",
-                waitingText: "Waiting for the host to start",
+                title: viewModel.roundStartCountdown.map { "Start Round · \($0)" } ?? "Start Round",
+                waitingText: viewModel.roundStartCountdown.map { "Round starts in \($0)" } ?? "Waiting for the host to start",
                 isEnabled: viewModel.hasChosenLetter && !viewModel.isShuffling && !viewModel.isChooserWatchingAd
             ) { hostId in
                 viewModel.startRound(by: hostId)
@@ -101,6 +107,9 @@ struct LetterChoiceView: View {
             return "\(viewModel.letterChooser?.name ?? "They") got \(viewModel.currentLetter). Watching an ad to reshuffle…"
         }
         if viewModel.isShuffling { return "Shuffling…" }
+        if let seconds = viewModel.roundStartCountdown {
+            return "Locked in on \(viewModel.currentLetter) · Round starts in \(seconds)"
+        }
         if viewModel.hasChosenLetter { return "Locked in on \(viewModel.currentLetter)" }
         return viewModel.isLocalChooser ? "Tap Shuffle to pick from A to Z" : ""
     }
