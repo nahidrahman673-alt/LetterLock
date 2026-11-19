@@ -142,8 +142,12 @@ struct RoundAnswer: Identifiable, Hashable {
     /// Set when players vote that this answer is the same as another one (Donut and Doughnut).
     var mergedKey: String?
 
-    /// What scoring compares: the voted match if there is one, otherwise the answer itself.
-    var scoringKey: String { mergedKey ?? matchKey }
+    /// Set when the answer is on the app's country or city list (see WordList).
+    var verified: VerifiedName?
+
+    /// What scoring compares: the voted match if there is one, then the place it names on the
+    /// word list ("UK" and "United Kingdom" match), otherwise the answer itself.
+    var scoringKey: String { mergedKey ?? verified?.key ?? matchKey }
 
     /// Spelling is left to the players, so answers match on case and spacing only.
     var matchKey: String {

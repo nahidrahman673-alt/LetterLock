@@ -479,6 +479,7 @@ final class GameViewModel {
                     text: text.trimmingCharacters(in: .whitespacesAndNewlines)
                 )
                 answer.hasWrongLetter = !answer.isBlank && !LetterRule.fits(answer.text, letter: currentLetter)
+                answer.verified = WordList.verify(answer.text, category: category.name)
                 // Still being typed in the last couple of seconds, and never locked in: probably cut off.
                 if player.isLocal, !localWasLockedIn, !answer.isBlank,
                    let editedAt = answerEditedAt[category.id], endedAt.timeIntervalSince(editedAt) < Self.cutOffWindow {
@@ -611,7 +612,9 @@ final class GameViewModel {
     }
 
     func canVeto(_ answer: RoundAnswer) -> Bool {
-        guard activeVote == nil, answer.canScore, !answer.wasVoted, answer.playerId != localPlayer?.id else { return false }
+        guard activeVote == nil, answer.canScore, !answer.wasVoted, answer.playerId != localPlayer?.id,
+              answer.verified?.canVeto != false   // A known country can't be vetoed.
+        else { return false }
         switch gameState {
         case .reveal: return isRevealed(answer)
         // In Sudden Death only the players who are waiting (the judges) can Veto.
@@ -841,9 +844,9 @@ final class GameViewModel {
     /// The fastest answer that has the right letter, wasn't vetoed and nobody else gave. Nil if there isn't one.
     var suddenDeathLeaderId: UUID? {
         let valid = suddenDeathAnswers.filter(\.canScore)
-        let counts = Dictionary(grouping: valid, by: \.matchKey).mapValues(\.count)
+        let counts = Dictionary(grouping: valid, by: \.scoringKey).mapValues(\.count)
         return valid
-            .filter { counts[$0.matchKey] == 1 }
+            .filter { counts[$0.scoringKey] == 1 }
             .min { suddenDeathSeconds(for: $0.playerId) < suddenDeathSeconds(for: $1.playerId) }?
             .playerId
     }
@@ -852,7 +855,7 @@ final class GameViewModel {
         if answer.isBlank { return .blank }
         if answer.hasWrongLetter { return .wrongLetter }
         if answer.verdict == .rejected { return .rejected }
-        let sameCount = suddenDeathAnswers.filter { $0.canScore && $0.matchKey == answer.matchKey }.count
+        let sameCount = suddenDeathAnswers.filter { $0.canScore && $0.scoringKey == answer.scoringKey }.count
         if sameCount > 1 { return .sameAnswer }
         return answer.playerId == suddenDeathLeaderId ? .winner : .slower
     }
@@ -970,6 +973,7 @@ final class GameViewModel {
                 text: suddenDeathTexts[id, default: ""].trimmingCharacters(in: .whitespacesAndNewlines)
             )
             answer.hasWrongLetter = !answer.isBlank && !LetterRule.fits(answer.text, letter: currentLetter)
+            answer.verified = WordList.verify(answer.text, category: category.name)
             return answer
         }
         suddenDeathPhase = .result

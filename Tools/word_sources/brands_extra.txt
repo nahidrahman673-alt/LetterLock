@@ -1,0 +1,185 @@
+# Well-known brands Wikidata files under other names or types. Added on top of the Wikidata list.
+# One per line; other names after "|".
+Armani|Giorgio Armani|Emporio Armani
+Boots
+Cadbury|Cadbury's|Cadbury Dairy Milk|Dairy Milk
+Cartier
+Coca-Cola|Coke|Coca Cola
+Diet Coke
+Facebook
+Instagram|Insta
+Kellogg's|Kelloggs|Kellogg
+Lacoste
+Levi's|Levis|Levi Strauss
+Lindt
+L'Oréal|Loreal|L'Oreal
+Louis Vuitton|LV
+Lynx|Axe
+Oreo
+Peugeot
+Range Rover
+Starbucks
+TikTok|Tik Tok
+YouTube|You Tube
+Zara
+Snapchat
+WhatsApp
+Pringles
+Walkers
+Lay's|Lays
+Hershey's|Hersheys|Hershey
+Smarties
+Maltesers
+Galaxy
+Ferrero Rocher
+Kinder|Kinder Bueno|Kinder Surprise
+Haagen-Dazs|Häagen-Dazs
+Ben & Jerry's|Ben and Jerry's|Ben & Jerrys
+Magnum
+Lipton
+Evian
+Volvic
+Tropicana
+Ribena
+Lucozade
+Gatorade
+Powerade
+7 Up|7Up|Seven Up
+Fanta
+Sprite
+Dr Pepper|Dr. Pepper
+Tango
+Irn-Bru|Irn Bru
+Vimto
+Heinz
+Hellmann's|Hellmanns
+Nutella
+Weetabix
+Cheerios
+Quaker|Quaker Oats
+Uncle Ben's|Uncle Bens|Ben's Original
+Dettol
+Colgate
+Oral-B|Oral B
+Gillette
+Dove
+Nivea
+Vaseline
+Head & Shoulders|Head and Shoulders
+Pantene
+Calvin Klein|CK
+Tommy Hilfiger
+Ralph Lauren|Polo Ralph Lauren
+Hugo Boss|Boss
+Versace
+Prada
+Chanel
+Dior|Christian Dior
+Hermès|Hermes
+Balenciaga
+Burberry
+Michael Kors
+Ray-Ban|Ray Ban|Rayban
+Oakley
+Primark
+H&M|H and M
+Uniqlo
+Next
+Topshop
+Superdry
+JD Sports|JD
+Foot Locker
+Skechers
+Timberland
+Dr. Martens|Doc Martens|Dr Martens
+North Face|The North Face
+Patagonia
+Gymshark
+Fila
+Asics
+Umbro
+Kappa
+Champion
+Nintendo
+PlayStation|PS5|PS4
+Xbox
+Game Boy
+Fortnite
+Minecraft
+Roblox
+FIFA
+Call of Duty
+Pokémon|Pokemon
+Barbie
+Hot Wheels
+Nerf
+Monopoly
+Play-Doh|Playdoh
+iPhone
+iPad
+MacBook
+Kindle
+Alexa
+Siri
+GoPro
+Fitbit
+Beats|Beats by Dre
+JBL
+Bose
+Sonos
+Dyson
+Hoover
+Kenwood
+Tefal
+Nespresso
+Costa|Costa Coffee
+Caffè Nero|Caffe Nero
+Tim Hortons
+Dunkin'|Dunkin|Dunkin Donuts|Dunkin' Donuts
+Krispy Kreme
+Greggs
+Pret|Pret a Manger
+Nando's|Nandos
+KFC|Kentucky Fried Chicken
+Burger King
+Subway
+Domino's|Dominos
+Pizza Hut
+Papa John's|Papa Johns
+Taco Bell
+Five Guys
+Shake Shack
+Wendy's|Wendys
+Chick-fil-A|Chick fil A
+Tesco
+Sainsbury's|Sainsburys
+Asda
+Morrisons
+Waitrose
+Lidl
+Aldi
+Carrefour
+Lulu|LuLu Hypermarket
+Spinneys
+Noon
+Talabat
+Deliveroo
+Uber Eats|UberEats
+Careem
+Uber
+Lyft
+Airbnb
+Booking.com|Booking
+Expedia
+Ryanair
+easyJet|Easy Jet
+British Airways|BA
+Etihad|Etihad Airways
+Emirates
+Qatar Airways
+flydubai|Fly Dubai
+Visa
+Mastercard
+PayPal
+Revolut
+Monzo

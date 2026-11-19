@@ -1,0 +1,198 @@
+# Food and drink the app knows: the basics first (fruit, vegetables, everyday juices and drinks,
+# everyday baked goods). One per line; other names for the same thing after "|".
+# Plurals are handled by the app (Strawberries = Strawberry), so list the singular.
+# Rebuild the app's list with: python3 -I Tools/make_word_lists.py hand
+
+# Fruit
+Apple
+Apricot
+Avocado
+Banana
+Blackberry
+Blackcurrant
+Blueberry
+Cantaloupe
+Cherry
+Clementine
+Coconut
+Cranberry
+Damson
+Date
+Dragon fruit
+Durian
+Elderberry
+Fig
+Gooseberry
+Grape
+Grapefruit
+Guava
+Honeydew|Honeydew melon
+Jackfruit
+Kiwi|Kiwi fruit|Kiwifruit
+Kumquat
+Lemon
+Lime
+Lychee|Litchi
+Mandarin
+Mango
+Melon
+Mulberry
+Nectarine
+Olive
+Orange
+Papaya
+Passion fruit
+Peach
+Pear
+Persimmon
+Pineapple
+Plum
+Pomegranate
+Prune
+Quince
+Raisin
+Raspberry
+Redcurrant
+Rhubarb
+Satsuma
+Starfruit|Star fruit
+Strawberry
+Sultana
+Tangerine
+Ugli fruit
+Watermelon
+
+# Vegetables
+Artichoke
+Asparagus
+Aubergine|Eggplant
+Bean sprout
+Beetroot|Beet
+Bok choy|Pak choi
+Broad bean
+Broccoli
+Brussels sprout|Brussel sprout|Sprout
+Butternut squash
+Cabbage
+Carrot
+Cauliflower
+Celeriac
+Celery
+Chard
+Chickpea
+Chilli|Chili|Chilli pepper
+Corn|Sweetcorn|Maize|Corn on the cob
+Courgette|Zucchini
+Cucumber
+Endive
+Fennel
+Garlic
+Ginger
+Green bean
+Kale
+Kidney bean
+Leek
+Lentil
+Lettuce
+Mushroom
+Okra
+Onion
+Parsnip
+Pea
+Pepper|Bell pepper|Capsicum
+Potato
+Pumpkin
+Radish
+Rocket|Arugula
+Runner bean
+Shallot
+Spinach
+Spring onion|Scallion
+Squash
+Swede
+Sweet potato
+Tomato
+Turnip
+Watercress
+Yam
+
+# Juices and everyday drinks
+Apple juice
+Carrot juice
+Coconut water
+Coffee
+Cranberry juice
+Grape juice
+Grapefruit juice
+Hot chocolate
+Iced tea
+Juice
+Lemonade
+Lemon juice
+Mango juice
+Milk
+Milkshake
+Orange juice|OJ
+Pineapple juice
+Smoothie
+Tea
+Tomato juice
+Water
+
+# Everyday baked goods
+Apple pie
+Bagel
+Baguette
+Bakewell tart
+Baklava
+Banana bread
+Biscuit
+Bread
+Brioche
+Brown bread
+Brownie
+Bun
+Cake
+Carrot cake
+Cheesecake
+Ciabatta
+Cinnamon roll|Cinnamon bun
+Cookie
+Cracker
+Croissant
+Crumpet
+Cupcake
+Danish|Danish pastry
+Doughnut|Donut
+Eccles cake
+Eclair
+Flapjack
+Focaccia
+Fruitcake|Fruit cake
+Garlic bread
+Gingerbread
+Hot cross bun
+Macaron
+Madeleine
+Mince pie
+Muffin
+Naan|Naan bread
+Pain au chocolat
+Pasty
+Pastry
+Pie
+Pitta|Pita|Pitta bread|Pita bread
+Pretzel
+Quiche
+Rye bread
+Sausage roll
+Scone
+Shortbread
+Soda bread
+Sourdough
+Sponge cake|Sponge|Victoria sponge
+Strudel
+Swiss roll
+Tart
+Teacake
+White bread

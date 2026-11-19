@@ -1,0 +1,455 @@
+# Animals the app knows. One per line; other names for the same animal after "|".
+# Plurals are handled by the app (Lions = Lion), so list the singular.
+# Rebuild the app's list with: python3 -I Tools/make_word_lists.py hand
+Aardvark
+Aardwolf
+Adder
+Addax
+Agouti
+Albatross
+Alligator|Gator
+Alpaca
+Anaconda
+Anchovy
+Angelfish
+Anglerfish
+Ant
+Anteater
+Antelope
+Ape
+Arctic fox
+Arctic hare
+Arctic tern
+Armadillo
+Asp
+Auk
+Avocet
+Axolotl
+Aye-aye
+Baboon
+Badger
+Bald eagle
+Bandicoot
+Barn owl
+Barnacle
+Barracuda
+Basilisk lizard
+Bass
+Basset hound
+Bat
+Beagle
+Bear
+Beaver
+Bee
+Beetle
+Beluga
+Bison
+Blackbird
+Black widow
+Bloodhound
+Blue jay
+Blue whale
+Boa|Boa constrictor
+Boar|Wild boar
+Bobcat
+Bonobo
+Border collie
+Bream
+Brown bear
+Budgie|Budgerigar
+Buffalo
+Bull
+Bulldog
+Bullfrog
+Bumblebee|Bumble bee
+Butterfly
+Buzzard
+Caiman
+Calf|Calves
+Camel
+Canary
+Capybara
+Caracal
+Cardinal
+Caribou
+Carp
+Cassowary
+Cat
+Caterpillar
+Catfish
+Cattle
+Centipede
+Chameleon
+Cheetah
+Chick
+Chicken
+Chihuahua
+Chimpanzee|Chimp
+Chinchilla
+Chipmunk
+Cicada
+Clam
+Clownfish
+Cobra
+Cockatoo
+Cocker spaniel
+Cockerel
+Cockroach|Roach
+Cod
+Collie
+Colt
+Condor
+Coral
+Corgi
+Cormorant
+Cougar
+Cow
+Coyote
+Crab
+Crane
+Crayfish
+Cricket
+Crocodile|Croc
+Crow
+Cub
+Cuckoo
+Cuttlefish
+Dachshund|Sausage dog
+Dalmatian
+Deer
+Dingo
+Doberman|Dobermann
+Dodo
+Dog
+Dolphin
+Donkey
+Dormouse
+Dove
+Dragonfly
+Drake
+Dromedary
+Duck
+Duckling
+Dugong
+Dung beetle
+Eagle
+Earthworm
+Earwig
+Echidna
+Eel
+Egret
+Eland
+Elephant
+Elephant seal
+Elk
+Emperor penguin
+Emu
+Ermine
+Falcon
+Fawn
+Fennec fox
+Ferret
+Finch
+Firefly
+Fish
+Flamingo
+Flea
+Flounder
+Fly
+Flying fish
+Foal
+Fox
+Frog
+Fruit bat
+Gannet
+Gazelle
+Gecko
+Gerbil
+German shepherd|Alsatian
+Gibbon
+Gila monster
+Giraffe
+Gnat
+Gnu
+Goat
+Goldfish
+Golden retriever
+Goose|Geese
+Gopher
+Gorilla
+Grasshopper
+Great Dane
+Great white shark
+Greyhound
+Grizzly bear|Grizzly
+Grouse
+Guinea pig
+Gull|Seagull
+Guppy
+Haddock
+Halibut
+Hamster
+Hare
+Harrier
+Hawk
+Hedgehog
+Hen
+Hermit crab
+Heron
+Herring
+Hippo|Hippopotamus
+Honey badger
+Honeybee|Honey bee
+Hornet
+Horse
+Horseshoe crab
+Hound
+Howler monkey
+Hummingbird
+Humpback whale
+Husky
+Hyena|Hyaena
+Ibex
+Ibis
+Iguana
+Impala
+Insect
+Irish setter
+Irish wolfhound
+Jack Russell|Jack Russell terrier
+Jackal
+Jackdaw
+Jaguar
+Jay
+Jellyfish
+Jerboa
+Kangaroo|Roo
+Kestrel
+Killer whale|Orca
+King cobra
+Kingfisher
+Kitten
+Kiwi
+Koala
+Koi
+Komodo dragon
+Kookaburra
+Krill
+Kudu
+Labrador|Labrador retriever
+Ladybird|Ladybug
+Lamb
+Lamprey
+Lark
+Leech
+Lemming
+Lemur
+Leopard
+Leopard seal
+Lion
+Lionfish
+Lizard
+Llama
+Lobster
+Locust
+Loris
+Louse|Lice
+Lynx
+Lyrebird
+Macaque
+Macaw
+Mackerel
+Magpie
+Mallard
+Mammoth
+Manatee
+Mandrill
+Manta ray
+Mantis|Praying mantis
+Mare
+Marmoset
+Marmot
+Marten
+Meerkat
+Millipede
+Mink
+Minnow
+Mole
+Mongoose
+Monkey
+Moose
+Mosquito
+Moth
+Mountain goat
+Mountain lion
+Mouse|Mice
+Mule
+Musk ox
+Mussel
+Mustang
+Narwhal
+Newt
+Nightingale
+Nightjar
+Numbat
+Nurse shark
+Ocelot
+Octopus
+Okapi
+Opossum|Possum
+Orangutan|Orang-utan
+Oryx
+Osprey
+Ostrich
+Otter
+Owl
+Ox|Oxen
+Oyster
+Panda|Giant panda
+Panther
+Parakeet
+Parrot
+Partridge
+Peacock|Peafowl|Peahen
+Pelican
+Penguin
+Perch
+Pheasant
+Pig
+Pigeon
+Piglet
+Pike
+Piranha
+Pit bull
+Plaice
+Platypus
+Polar bear
+Polecat
+Pomeranian
+Pony
+Poodle
+Porcupine
+Porpoise
+Prairie dog
+Prawn
+Pufferfish|Puffer fish
+Puffin
+Pug
+Puma
+Puppy|Pup
+Python
+Quail
+Quetzal
+Quokka
+Quoll
+Rabbit|Bunny
+Raccoon|Racoon
+Ram
+Rat
+Rattlesnake
+Raven
+Ray
+Red fox
+Red panda
+Reindeer
+Rhea
+Rhino|Rhinoceros
+Roadrunner
+Robin
+Rooster
+Rottweiler
+Salamander
+Salmon
+Sardine
+Scorpion
+Sea cucumber
+Sea lion
+Sea otter
+Sea turtle
+Sea urchin|Urchin
+Seahorse|Sea horse
+Seal
+Shark
+Sheep
+Sheepdog
+Shrew
+Shrimp
+Siamese cat
+Skunk
+Sloth
+Slug
+Snail
+Snake
+Snapper
+Snow leopard
+Sole
+Sparrow
+Spider
+Spaniel
+Springbok
+Squid
+Squirrel
+Stag
+Stallion
+Starfish
+Stick insect
+Stingray
+Stoat
+Stork
+Sturgeon
+Sun bear
+Swallow
+Swan
+Swordfish
+Tadpole
+Tamarin
+Tapir
+Tarantula
+Tasmanian devil
+Termite
+Tern
+Terrier
+Thrush
+Tick
+Tiger
+Tiger shark
+Toad
+Tortoise
+Toucan
+Tree frog
+Trout
+Tuna
+Turkey
+Turtle
+Uakari
+Umbrellabird
+Vampire bat
+Vicuna
+Viper
+Vole
+Vulture
+Wallaby
+Walrus
+Warbler
+Warthog
+Wasp
+Water buffalo
+Weasel
+Whale
+Whippet
+Wildebeest
+Wolf|Wolves
+Wolverine
+Wombat
+Woodlouse|Woodlice
+Woodpecker
+Worm
+Wren
+Xerus
+X-ray tetra
+Yak
+Yellowjacket
+Yorkshire terrier|Yorkie
+Zebra
+Zebra finch
+Zebu

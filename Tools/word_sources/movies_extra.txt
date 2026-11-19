@@ -1,0 +1,23 @@
+# Well-known films and series Wikidata files under other types (franchises). Added on top of the
+# Wikidata list. One per line; other names after "|".
+Star Wars
+James Bond|Bond|007
+Marvel|Marvel Cinematic Universe|MCU
+Pirates of the Caribbean
+Transformers
+Indiana Jones
+Mission: Impossible|Mission Impossible
+Fast & Furious|Fast and Furious
+The Lord of the Rings|Lord of the Rings|LOTR
+Harry Potter
+The Hunger Games|Hunger Games
+Twilight
+Toy Story
+Shrek
+Despicable Me
+Jurassic Park|Jurassic World
+X-Men|X Men
+Rocky
+Star Trek
+Doctor Who|Dr Who
+Pokémon|Pokemon

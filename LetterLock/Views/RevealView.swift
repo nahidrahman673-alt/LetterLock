@@ -163,13 +163,22 @@ struct RevealView: View {
 
                 Group {
                     if isRevealed {
-                        Text(answer.isBlank ? "No answer" : answer.text)
-                            .font(.system(size: answer.isBlank ? 24 : 34, weight: .heavy, design: .rounded))
-                            .strikethrough(isRejected)
-                            .foregroundStyle(answer.isBlank || isRejected ? Color.letterMuted : Color.letterCream)
-                            .minimumScaleFactor(0.5)
-                            .lineLimit(1)
-                            .transition(.scale(scale: 0.6).combined(with: .opacity))
+                        HStack(spacing: 6) {
+                            Text(answer.isBlank ? "No answer" : answer.text)
+                                .font(.system(size: answer.isBlank ? 24 : 34, weight: .heavy, design: .rounded))
+                                .strikethrough(isRejected)
+                                .foregroundStyle(answer.isBlank || isRejected ? Color.letterMuted : Color.letterCream)
+                                .minimumScaleFactor(0.5)
+                                .lineLimit(1)
+                            // On the app's country or city list.
+                            if answer.verified != nil, answer.canScore {
+                                Image(systemName: "checkmark.seal.fill")
+                                    .font(.title3)
+                                    .foregroundStyle(Color.letterMint)
+                                    .accessibilityLabel("Verified")
+                            }
+                        }
+                        .transition(.scale(scale: 0.6).combined(with: .opacity))
                     } else {
                         Text("• • •")
                             .font(.system(size: 28, weight: .heavy, design: .rounded))
@@ -228,6 +237,11 @@ struct RevealView: View {
                 Text(isRejected ? "Rejected" : "Upheld")
                     .font(.caption2.weight(.bold))
                     .foregroundStyle(isRejected ? Color.letterCoral : Color.letterMint)
+            } else if isRevealed, answer.verified?.canVeto == false, answer.canScore {
+                // A known country: a settled fact, so there's no Veto button.
+                Text("Verified")
+                    .font(.caption2.weight(.bold))
+                    .foregroundStyle(Color.letterMint)
             }
 
             if viewModel.isCategoryScored {

@@ -32,7 +32,8 @@ Plan") alongside a "Rules sheet" tab and a "Phase 6 features" tab.
 SharePlay (hide the button where it isn't available; room codes always work), moderation for App Store
 guideline 1.2 (mask severe slurs as ****, remove/report player, contact link), and App Store
 compliance (privacy manifest and labels, ad network tracking prompt, honest age rating, graceful
-"ad not available", account deletion if accounts exist).
+"ad not available", account deletion if accounts exist), and a credits line for GeoNames
+(geonames.org, CC BY 4.0; the city list comes from it).
 
 ## Rules (summary; the Rules sheet is the source of truth)
 
@@ -50,6 +51,19 @@ compliance (privacy manifest and labels, ad network tracking prompt, honest age 
   warns while typing; the reveal shows "Wrong letter".
   Matching ignores capitals and spaces; spelling is never checked, but players can vote two answers
   "Same answer?" (the app suggests look/sound-alikes via `AnswerSimilarity`; voted pairs share `mergedKey`).
+- Word lists (`Models/WordList.swift`, files in `LetterLock/WordLists/`): an answer on its category's list
+  shows a mint ✓ at the reveal, and other names for the same thing match ("UK" = "United Kingdom",
+  "Bombay" = "Mumbai", "CR7" = "Cristiano Ronaldo"). Not on the list = plays as before (Veto decides).
+  No spelling hints (owner's choice). Animal and Food/Drink accept plurals.
+  - Can't be vetoed (say "Verified"): Country (in the Swift file: UN members, Kosovo, Palestine, Taiwan,
+    Vatican City, England, Scotland, Wales, Northern Ireland), Boy's Name and Girl's Name (Wikidata first
+    names; unisex on both).
+  - Can be vetoed: City (GeoNames, 15,000+ people), Animal and Food/Drink (hand-written in
+    `Tools/word_sources/`; food is the basics so far: fruit, veg, everyday juices/drinks, baked goods),
+    Movies/Series, Celebrity, Brand (best-known on Wikidata, plus `*_extra.txt` top-ups).
+  - Book/Movie Character has no list.
+  - Rebuild with `Tools/make_word_lists.py` (its header says how); the Wikidata queries are in
+    `Tools/word_sources/wikidata_queries.md` and run on qlever.dev (query.wikidata.org times out).
 - Answers still being typed at 0:00 (not locked in) are tagged "Cut off at 0:00" at the reveal.
 - Reveal: one category at a time, one player at a time; points show once all are revealed.
   Veto starts a vote of everyone but the author; more rejects than accepts scores it 0, a tie keeps it.
